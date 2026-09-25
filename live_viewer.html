@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Model Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f14; --bg-grid: #121a21; --panel: #101820; --panel-border: #202b34;
+    --text: #dde6ec; --text-dim: #7c8a97; --text-faint: #4b5964;
+    --cyan: #52d7e8; --amber: #f0a83c; --red: #ef5b5b; --green: #3fd992; --grey: #4b5964;
+    font-family: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden; }
+  #app { position: relative; width: 100vw; height: 100vh; }
+  svg#canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .grid-dot { fill: var(--bg-grid); }
+
+  #toolbar {
+    position: absolute; top: 16px; left: 16px; z-index: 10; display: flex; gap: 8px; align-items: center;
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 3px; padding: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.45); flex-wrap: wrap;
+  }
+  .sep { width: 1px; height: 22px; background: var(--panel-border); }
+  button.btn, select.btn {
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+    background: transparent; color: var(--text); border: 1px solid var(--panel-border);
+    border-radius: 3px; padding: 7px 12px; cursor: pointer;
+  }
+  button.btn:hover { background: rgba(255,255,255,0.06); }
+  button.btn.primary { background: var(--cyan); color: #06171b; border-color: var(--cyan); font-weight: 600; }
+  button.btn.warn:hover { border-color: var(--amber); color: var(--amber); }
+  button.btn.danger:hover { border-color: var(--red); color: var(--red); }
+  button.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  #status {
+    position: absolute; top: 16px; right: 16px; z-index: 10; background: var(--panel);
+    border: 1px solid var(--panel-border); border-radius: 3px; padding: 10px 14px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-dim);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.45);
+  }
+  #status .conn-ok { color: var(--green); }
+  #status .conn-bad { color: var(--red); }
+
+  #inspector {
+    position: absolute; bottom: 16px; left: 16px; z-index: 10; width: 300px; max-height: calc(100vh - 140px); overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 3px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.45); padding: 14px 16px; display: none;
+  }
+  #inspector .title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  #inspector .sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); margin-bottom: 12px; }
+  #inspector .row { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 6px; }
+  #inspector .row .k { color: var(--text-dim); }
+  #inspector .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+  #addnode-panel {
+    position: absolute; bottom: 16px; left: 16px; z-index: 10; width: 300px;
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 3px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.45); padding: 14px 16px; display: none;
+  }
+  #addnode-panel .title { font-weight: 600; font-size: 14px; margin-bottom: 10px; }
+  #addnode-panel .field { margin-bottom: 10px; }
+  #addnode-panel .field label {
+    display: block; font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    color: var(--text-dim); margin-bottom: 4px;
+  }
+  #addnode-panel .field input, #addnode-panel .field select {
+    width: 100%; background: #0c141a; border: 1px solid var(--panel-border);
+    color: var(--text); border-radius: 3px; padding: 6px 8px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  }
+  #addnode-panel .actions { display: flex; gap: 8px; margin-top: 12px; }
+
+  .node-title { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 13px; fill: var(--text); }
+  .node-sub { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; fill: var(--text-dim); }
+  .node-body { filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
+  g.node { cursor: grab; touch-action: none; user-select: none; }
+  g.node.dragging { cursor: grabbing; }
+  g.node text { pointer-events: none; }
+  #toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20; background: #2a1519; border: 1px solid var(--red); color: #ffb4b4; font-size: 12.5px; padding: 8px 14px; border-radius: 3px; display: none; }
+  .edge-path { fill: none; stroke-linecap: round; }
+
+  #conflict-panel {
+    position: absolute; top: 64px; right: 16px; z-index: 9; width: 320px; max-height: calc(100vh - 80px); overflow-y: auto; display: none;
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 3px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.45); padding: 14px 16px; font-size: 12.5px;
+  }
+  #conflict-panel .title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  #conflict-panel .mech { color: var(--text-dim); font-size: 11.5px; margin-bottom: 10px; line-height: 1.4; }
+  #conflict-panel .goal { font-size: 11.5px; margin-bottom: 3px; }
+  #conflict-panel .goal b { color: var(--amber); font-weight: 600; }
+  #conflict-panel .goal.g b { color: var(--cyan); }
+  #conflict-panel .zrow { margin-top: 9px; }
+  #conflict-panel .zhead { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); margin-bottom: 3px; }
+  #conflict-panel .bar { position: relative; height: 10px; background: #1c262f; border-radius: 2px; overflow: hidden; }
+  #conflict-panel .bar .dem { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(239,91,91,0.35); }
+  #conflict-panel .bar .alc { position: absolute; left: 0; top: 0; bottom: 0; background: var(--cyan); }
+  #conflict-panel .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--panel-border); }
+  #conflict-panel .kpi .k { color: var(--text-dim); font-size: 11px; }
+  #conflict-panel .kpi .v { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+  #conflict-panel .legend { font-size: 10.5px; color: var(--text-faint); margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <svg id="canvas">
+    <defs>
+      <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+        <circle class="grid-dot" cx="1.2" cy="1.2" r="1.2"></circle>
+      </pattern>
+      <marker id="arrow-grey" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto">
+        <path d="M0,1 L10,5 L0,9 z" fill="#3a4854"></path>
+      </marker>
+      <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto">
+        <path d="M0,1 L10,5 L0,9 z" fill="#f0a83c"></path>
+      </marker>
+      <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto">
+        <path d="M0,1 L10,5 L0,9 z" fill="#3fd992"></path>
+      </marker>
+    </defs>
+    <rect x="0" y="0" width="100%" height="100%" fill="url(#grid)"></rect>
+    <g id="edges-layer"></g>
+    <g id="nodes-layer"></g>
+  </svg>
+
+  <div id="toolbar">
+    <select id="model-select" class="btn" title="Модель / схема конфликта">
+      <option value="pipeline">pipeline (Pump/Valve/Tank)</option>
+      <option value="factory">factory (Machine A/Buffer/B)</option>
+    </select>
+    <div class="sep"></div>
+    <button class="btn primary" id="btn-play"><span id="play-label">Пуск</span></button>
+    <button class="btn" id="btn-step">Шаг</button>
+    <button class="btn" id="btn-reset">Пересоздать модель</button>
+    <div class="sep"></div>
+    <button class="btn" id="btn-addnode">+ Узел</button>
+    <button class="btn" id="btn-conflict" style="display:none">Скрыть метрики</button>
+    <button class="btn" id="btn-relayout" title="Вернуть автоматическую раскладку">Сбросить раскладку</button>
+    <div class="sep"></div>
+    <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim);">
+      Шаг <span id="step-count" style="color:var(--text);">0</span> ·
+      Завершено <span id="completed-count" style="color:var(--text);">0</span>
+    </span>
+  </div>
+
+  <div id="status">real_time: <span id="conn-status" class="conn-ok">подключено</span></div>
+
+  <div id="conflict-panel"></div>
+  <div id="toast"></div>
+
+  <div id="inspector">
+    <div class="title" id="insp-title"></div>
+    <div class="sub" id="insp-sub"></div>
+    <div id="insp-rows"></div>
+    <div class="actions">
+      <button class="btn warn" id="btn-fail">Отказ (5 шагов)</button>
+      <button class="btn danger" id="btn-fail-permanent">Отказ насовсем</button>
+      <button class="btn" id="btn-recover">Восстановить</button>
+    </div>
+  </div>
+
+  <div id="addnode-panel">
+    <div class="title">Добавить узел</div>
+    <div class="field">
+      <label>Тип узла</label>
+      <select id="an-type"></select>
+    </div>
+    <div class="field">
+      <label>Имя нового узла</label>
+      <input id="an-name" type="text" placeholder="например NewValve">
+    </div>
+    <div class="field">
+      <label>Вставить после узла</label>
+      <select id="an-after"></select>
+    </div>
+    <div class="field">
+      <label>Способ подключения</label>
+      <select id="an-mode">
+        <option value="insert">Встроить в цепочку (после выбранного)</option>
+        <option value="branch">Новая ветка от выбранного</option>
+      </select>
+    </div>
+    <div id="an-params"></div>
+    <div class="actions">
+      <button class="btn primary" id="an-submit">Добавить</button>
+      <button class="btn" id="an-cancel">Отмена</button>
+    </div>
+    <div id="an-error" style="color:var(--red); font-size:11.5px; margin-top:8px; display:none;"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById('canvas');
+  const edgesLayer = document.getElementById('edges-layer');
+  const nodesLayer = document.getElementById('nodes-layer');
+  let W = window.innerWidth, H = window.innerHeight;
+  const NODE_W = 170, NODE_H = 78;
+
+  let lastState = null;
+  let selectedName = null;
+  let playing = false;
+  let playTimer = null;
+  let manualPos = {};      // ручные позиции узлов (после перетаскивания)
+  let stepInFlight = false;
+  let dragMoved = false;
+  let conflictHidden = false;  // пользователь закрыл панель метрик конфликта
+  let lastNodeUp = 0;      // время последнего отпускания на узле: клик сразу после него не считаем кликом по пустому месту
+  let dragging = false;    // пока тянем узел, автообновление (Пуск) не перерисовывает DOM
+
+  function trunc(str, n) { str = String(str); return str.length > n ? str.slice(0, n - 1) + '…' : str; }
+  function fmt(v) { return v === null || v === undefined ? '—' : (typeof v === 'number' ? Math.round(v * 100) / 100 : v); }
+  let toastTimer = null;
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.style.display = 'none'; }, 4000);
+  }
+
+  function handleResize() {
+    W = window.innerWidth; H = window.innerHeight;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  }
+  window.addEventListener('resize', handleResize);
+  handleResize();
+
+  function stateColor(s) {
+    if (s === 'working') return '#52d7e8';
+    if (s === 'failed') return '#ef5b5b';
+    if (s === 'blocked') return '#f0b429'; // обработал, но следующий узел не принимает
+    return '#4b5964'; // idle
+  }
+
+  function layoutPositions(nodes, edges) {
+    // глубина = длина самого длинного пути от истока; узлы одной глубины
+    // образуют колонку, поэтому ветвление раскладывается веером
+    const depth = {};
+    nodes.forEach(function (n) { depth[n.node] = 0; });
+    for (let it = 0; it < nodes.length; it++) {
+      let changed = false;
+      edges.forEach(function (e) {
+        if (depth[e.from] !== undefined && depth[e.to] !== undefined && depth[e.to] < depth[e.from] + 1) {
+          depth[e.to] = depth[e.from] + 1; changed = true;
+        }
+      });
+      if (!changed) break;
+    }
+    const columns = {};
+    nodes.forEach(function (n) { (columns[depth[n.node]] = columns[depth[n.node]] || []).push(n.node); });
+    const positions = {};
+    const gapX = 220, gapY = 26, startX = 80;
+    Object.keys(columns).forEach(function (d) {
+      const col = columns[d];
+      const total = col.length * NODE_H + (col.length - 1) * gapY;
+      col.forEach(function (name, i) {
+        positions[name] = { x: startX + Number(d) * gapX, y: H / 2 - total / 2 + i * (NODE_H + gapY) };
+      });
+    });
+    return positions;
+  }
+
+  function edgePathD(p1, p2) {
+    const dx = Math.max(50, Math.abs(p2.x - p1.x) * 0.5);
+    return 'M' + p1.x + ',' + p1.y + ' C' + (p1.x + dx) + ',' + p1.y + ' ' + (p2.x - dx) + ',' + p2.y + ' ' + p2.x + ',' + p2.y;
+  }
+
+  function redrawEdges() {
+    const data = lastState;
+    const positions = layoutPositions(data.nodes, data.edges);
+    Object.keys(manualPos).forEach(function (n) { if (positions[n]) positions[n] = manualPos[n]; });
+    edgesLayer.innerHTML = '';
+    data.edges.forEach(function (e) {
+      const p1 = positions[e.from], p2 = positions[e.to];
+      if (!p1 || !p2) return;
+      const from = { x: p1.x + NODE_W, y: p1.y + NODE_H / 2 };
+      const to = { x: p2.x, y: p2.y + NODE_H / 2 };
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', edgePathD(from, to));
+      path.setAttribute('class', 'edge-path');
+      let ecol = '#3a4854', ew = 3;
+      const zinfo = data.conflict && data.conflict.zones.find(function (z) { return z.name === e.to; });
+      if (zinfo) {
+        ew = 2 + zinfo.allocated * 1.6;
+        ecol = zinfo.deficit > 0.05 ? '#f0a83c' : '#3fd992';
+      }
+      path.setAttribute('stroke', ecol);
+      path.setAttribute('stroke-width', ew);
+      path.setAttribute('marker-end', 'url(#arrow-' + (ecol === '#f0a83c' ? 'amber' : ecol === '#3fd992' ? 'green' : 'grey') + ')');
+      edgesLayer.appendChild(path);
+    });
+  }
+
+  function render(data) {
+    if (lastState && lastState.model_name !== data.model_name) { manualPos = {}; conflictHidden = false; }
+    lastState = data;
+    if (dragging) return;   // перерисуем после отпускания
+    if (selectedName && !data.nodes.some(function (n) { return n.node === selectedName; })) {
+      selectedName = null;
+      document.getElementById('inspector').style.display = 'none';
+    }
+    document.getElementById('step-count').textContent = data.step;
+    document.getElementById('completed-count').textContent = data.completed;
+
+    syncModelSelect(data);
+    renderConflict(data.conflict);
+    const positions = layoutPositions(data.nodes, data.edges);
+    Object.keys(manualPos).forEach(function (n) { if (positions[n]) positions[n] = manualPos[n]; });
+
+    redrawEdges();
+
+    nodesLayer.innerHTML = '';
+    data.nodes.forEach(function (node) {
+      const pos = positions[node.node] || { x: 80, y: H / 2 };
+      const g = document.createElementNS(NS, 'g');
+      g.setAttribute('class', 'node');
+      g.setAttribute('transform', 'translate(' + pos.x + ',' + pos.y + ')');
+
+      const color = stateColor(node.state);
+      const rect = document.createElementNS(NS, 'rect');
+      rect.setAttribute('class', 'node-body');
+      rect.setAttribute('width', NODE_W); rect.setAttribute('height', NODE_H); rect.setAttribute('rx', 6);
+      rect.setAttribute('fill', '#101820');
+      rect.setAttribute('stroke', selectedName === node.node ? color : '#202b34');
+      rect.setAttribute('stroke-width', selectedName === node.node ? 2.5 : 1);
+      g.appendChild(rect);
+
+      const bar = document.createElementNS(NS, 'rect');
+      bar.setAttribute('width', 4); bar.setAttribute('height', NODE_H); bar.setAttribute('rx', 2); bar.setAttribute('fill', color);
+      g.appendChild(bar);
+
+      const title = document.createElementNS(NS, 'text');
+      title.setAttribute('class', 'node-title'); title.setAttribute('x', 14); title.setAttribute('y', 24);
+      title.textContent = trunc(node.node, 20);
+      g.appendChild(title);
+
+      const sub1 = document.createElementNS(NS, 'text');
+      sub1.setAttribute('class', 'node-sub'); sub1.setAttribute('x', 14); sub1.setAttribute('y', 42);
+      sub1.textContent = trunc(node.state.toUpperCase() + (node.mode ? ' · ' + node.mode : '') + (node.current_task ? ' · ' + node.current_task : ''), 26);
+      g.appendChild(sub1);
+
+      const sub2 = document.createElementNS(NS, 'text');
+      sub2.setAttribute('class', 'node-sub'); sub2.setAttribute('x', 14); sub2.setAttribute('y', 58);
+      sub2.textContent = trunc('queue ' + fmt(node.queue) + ' · load ' + fmt(node.load), 26);
+      g.appendChild(sub2);
+
+      const meterBg = document.createElementNS(NS, 'rect');
+      meterBg.setAttribute('x', 12); meterBg.setAttribute('y', NODE_H - 12); meterBg.setAttribute('width', NODE_W - 24);
+      meterBg.setAttribute('height', 4); meterBg.setAttribute('rx', 2); meterBg.setAttribute('fill', '#1c262f');
+      g.appendChild(meterBg);
+      const meterFill = document.createElementNS(NS, 'rect');
+      meterFill.setAttribute('x', 12); meterFill.setAttribute('y', NODE_H - 12);
+      meterFill.setAttribute('width', Math.max(0, (NODE_W - 24) * Math.min(1, node.load)));
+      meterFill.setAttribute('height', 4); meterFill.setAttribute('rx', 2); meterFill.setAttribute('fill', color);
+      g.appendChild(meterFill);
+
+      g.addEventListener('pointerdown', function (ev) {
+        if (ev.button !== undefined && ev.button !== 0) return;
+        ev.preventDefault();
+        const box = svg.getBoundingClientRect();
+        const offX = ev.clientX - box.left - pos.x, offY = ev.clientY - box.top - pos.y;
+        const startX = ev.clientX, startY = ev.clientY;
+        dragMoved = false;
+        dragging = true;
+        function onMove(e) {
+          if (!dragMoved && Math.hypot(e.clientX - startX, e.clientY - startY) < 4) return;
+          dragMoved = true;
+          const nx = Math.min(Math.max(0, e.clientX - box.left - offX), W - NODE_W);
+          const ny = Math.min(Math.max(0, e.clientY - box.top - offY), H - NODE_H);
+          manualPos[node.node] = { x: nx, y: ny };
+          g.setAttribute('transform', 'translate(' + nx + ',' + ny + ')');
+          g.classList.add('dragging');
+          redrawEdges();
+        }
+        function onUp() {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          window.removeEventListener('pointercancel', onUp);
+          dragging = false;
+          lastNodeUp = Date.now();
+          if (!dragMoved) {           // обычный клик -> выбрать узел
+            selectedName = node.node;
+            showInspector(lastState.nodes.find(function (n) { return n.node === node.node; }) || node);
+          }
+          render(lastState);
+        }
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointercancel', onUp);
+      });
+
+      nodesLayer.appendChild(g);
+    });
+  }
+
+  function syncModelSelect(data) {
+    const sel = document.getElementById('model-select');
+    const models = data.available_models || [];
+    if (models.length && sel.options.length !== models.length) {
+      sel.innerHTML = '';
+      models.forEach(function (m) {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = (data.model_labels && data.model_labels[m]) || m;
+        sel.appendChild(opt);
+      });
+    }
+    if (data.model_name && sel.value !== data.model_name) sel.value = data.model_name;
+  }
+
+  function renderConflict(c) {
+    const panel = document.getElementById('conflict-panel');
+    const cbtn = document.getElementById('btn-conflict');
+    if (!c) { panel.style.display = 'none'; cbtn.style.display = 'none'; return; }
+    cbtn.style.display = '';
+    cbtn.textContent = conflictHidden ? 'Показать метрики' : 'Скрыть метрики';
+    if (conflictHidden) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    const maxV = Math.max(5, ...c.zones.map(function (z) { return z.demand; }));
+    let h = '<div class="title">' + c.title + '</div>' +
+      '<div class="mech">' + c.mechanism + '</div>' +
+      '<div class="goal"><b>Локальная цель:</b> ' + c.local_goal + '</div>' +
+      '<div class="goal g"><b>Глобальная цель:</b> ' + c.global_goal + '</div>';
+    c.zones.forEach(function (z) {
+      h += '<div class="zrow"><div class="zhead"><span>' + z.name + ' · приор. ' + z.priority +
+        (z.bid ? ' · ставка ' + z.bid : '') + '</span><span>' + z.allocated + ' / ' + z.demand +
+        (z.deficit > 0.05 ? ' · дефицит ' + z.deficit : '') + '</span></div>' +
+        '<div class="bar"><div class="dem" style="width:' + (100 * z.demand / maxV) + '%"></div>' +
+        '<div class="alc" style="width:' + (100 * z.allocated / maxV) + '%"></div></div></div>';
+    });
+    h += '<div class="legend">красный фон — спрос, голубой — выделено</div>';
+    h += '<div class="kpis">' +
+      kpi('Предложение / доступно', c.supply + ' / ' + c.available) +
+      kpi('Суммарный спрос', c.total_demand) +
+      kpi('Дефицит за шаг', c.deficit) +
+      kpi('Эффективность vs оптимум', (c.efficiency * 100).toFixed(1) + '%') +
+      kpi('Справедливость (Jain)', c.fairness) +
+      kpi(c.tank_level !== null ? 'Уровень резервуара' : 'Потеряно ресурса', c.tank_level !== null ? c.tank_level : c.cum_wasted) +
+      '</div>';
+    panel.innerHTML = h;
+  }
+  function kpi(k, v) { return '<div class="kpi"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>'; }
+
+  function showInspector(node) {
+    const panel = document.getElementById('inspector');
+    document.getElementById('addnode-panel').style.display = 'none';
+    panel.style.display = 'block';
+    document.getElementById('insp-title').textContent = node.node;
+    document.getElementById('insp-sub').textContent = 'узел реальной Python-модели';
+    const rows = document.getElementById('insp-rows');
+    rows.innerHTML = '';
+    Object.keys(node).forEach(function (key) {
+      if (key === 'node') return;
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = '<span class="k">' + key + '</span><span>' + fmt(node[key]) + '</span>';
+      rows.appendChild(row);
+    });
+  }
+
+  async function fetchState() {
+    try {
+      const res = await fetch('/api/state');
+      const data = await res.json();
+      document.getElementById('conn-status').textContent = 'подключено';
+      document.getElementById('conn-status').className = 'conn-ok';
+      render(data);
+      if (selectedName) {
+        const n = data.nodes.find(function (x) { return x.node === selectedName; });
+        if (n) showInspector(n);
+      }
+    } catch (e) {
+      document.getElementById('conn-status').textContent = 'нет связи с live_server.py';
+      document.getElementById('conn-status').className = 'conn-bad';
+    }
+  }
+
+  async function postJson(url, body) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Ошибка запроса'); return null; }
+      document.getElementById('conn-status').textContent = 'подключено';
+      document.getElementById('conn-status').className = 'conn-ok';
+      render(data);
+      return data;
+    } catch (e) {
+      document.getElementById('conn-status').textContent = 'нет связи с live_server.py';
+      document.getElementById('conn-status').className = 'conn-bad';
+      return null;
+    }
+  }
+
+  // Закрыть все всплывающие окна: инспектор узла, форму добавления узла и
+  // панель метрик конфликта; снять выделение узла.
+  function closeAllPanels() {
+    selectedName = null;
+    document.getElementById('inspector').style.display = 'none';
+    document.getElementById('addnode-panel').style.display = 'none';
+    if (lastState && lastState.conflict) conflictHidden = true;
+    if (lastState) render(lastState);
+  }
+
+  // Клик по пустому месту закрывает все окна. Слушаем весь document, а не
+  // только svg, чтобы клик по любому "пустому" элементу (в т.ч. по обёртке
+  // страницы) тоже сработал. Клики по самим узлам, панелям, тулбару и
+  // статусу игнорируются.
+  document.addEventListener('click', function (ev) {
+    const t = ev.target;
+    if (!t.closest) return;
+    if (t.closest('g.node, #toolbar, #inspector, #addnode-panel, #conflict-panel, #status, #toast')) return;
+    // узел перерисовывается на pointerup, поэтому сам клик по нему может
+    // прийти уже на пустой холст -- такие клики игнорируем
+    if (Date.now() - lastNodeUp < 300) return;
+    closeAllPanels();
+  });
+
+  window.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') closeAllPanels();
+  });
+
+  document.getElementById('btn-conflict').addEventListener('click', function () {
+    conflictHidden = !conflictHidden;
+    if (lastState) render(lastState);
+  });
+
+  document.getElementById('btn-step').addEventListener('click', function () { postJson('/api/step', { n: 1 }); });
+
+  const playBtn = document.getElementById('btn-play');
+  const playLabel = document.getElementById('play-label');
+  playBtn.addEventListener('click', function () {
+    playing = !playing;
+    playLabel.textContent = playing ? 'Пауза' : 'Пуск';
+    if (playing) {
+      playTimer = setInterval(async function () {
+        if (stepInFlight) return;
+        stepInFlight = true;
+        await postJson('/api/step', { n: 1 });
+        stepInFlight = false;
+      }, 500);
+    } else {
+      clearInterval(playTimer);
+    }
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', function () {
+    const name = document.getElementById('model-select').value;
+    selectedName = null;
+    document.getElementById('inspector').style.display = 'none';
+    postJson('/api/reset', { model_name: name });
+  });
+
+  document.getElementById('model-select').addEventListener('change', function (evt) {
+    selectedName = null;
+    document.getElementById('inspector').style.display = 'none';
+    postJson('/api/reset', { model_name: evt.target.value });
+  });
+
+  document.getElementById('btn-relayout').addEventListener('click', function () {
+    manualPos = {};
+    if (lastState) render(lastState);
+  });
+
+  document.getElementById('btn-fail').addEventListener('click', function () {
+    if (!selectedName) return;
+    postJson('/api/fail', { node: selectedName, duration: 5 });
+  });
+  document.getElementById('btn-fail-permanent').addEventListener('click', function () {
+    if (!selectedName) return;
+    postJson('/api/fail', { node: selectedName, permanent: true });
+  });
+  document.getElementById('btn-recover').addEventListener('click', function () {
+    if (!selectedName) return;
+    postJson('/api/recover', { node: selectedName });
+  });
+
+  // -------------------------------------------------------------- //
+  // Добавление нового узла через интерфейс (/api/node_types, /api/add_node)
+  // -------------------------------------------------------------- //
+  let nodeTypes = [];
+
+  async function loadNodeTypes() {
+    try {
+      const res = await fetch('/api/node_types');
+      nodeTypes = await res.json();
+      const sel = document.getElementById('an-type');
+      sel.innerHTML = '';
+      nodeTypes.forEach(function (t) {
+        const opt = document.createElement('option');
+        opt.value = t.class_name;
+        opt.textContent = t.class_name;
+        sel.appendChild(opt);
+      });
+      renderParamFields();
+    } catch (e) {
+      // сервер мог быть недоступен в момент загрузки страницы -- не критично,
+      // список подтянется при следующем открытии панели
+    }
+  }
+
+  function renderParamFields() {
+    const type = nodeTypes.find(function (t) { return t.class_name === document.getElementById('an-type').value; });
+    const container = document.getElementById('an-params');
+    container.innerHTML = '';
+    if (!type) return;
+    const allParams = type.common_params.concat(type.extra_params);
+    allParams.forEach(function (p) {
+      const field = document.createElement('div');
+      field.className = 'field';
+      const label = document.createElement('label');
+      const hasDefault = p.default !== null && p.default !== undefined;
+      label.textContent = p.name + (hasDefault ? ' (по умолч. ' + p.default + ')' : '');
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.dataset.paramName = p.name;
+      input.placeholder = hasDefault ? String(p.default) : '';
+      field.appendChild(label);
+      field.appendChild(input);
+      container.appendChild(field);
+    });
+  }
+
+  function refreshInsertAfterOptions() {
+    const sel = document.getElementById('an-after');
+    sel.innerHTML = '';
+    if (!lastState) return;
+    // после конца цепочки (Output -- у него нет исходящих связей) вставлять нельзя
+    const anchors = lastState.nodes.filter(function (n) {
+      return lastState.edges.some(function (e) { return e.from === n.node; });
+    });
+    anchors.forEach(function (n) {
+      const opt = document.createElement('option');
+      opt.value = n.node;
+      opt.textContent = n.node;
+      sel.appendChild(opt);
+    });
+    if (anchors.length) {
+      sel.value = anchors[anchors.length - 1].node;
+    }
+  }
+
+  document.getElementById('btn-addnode').addEventListener('click', function () {
+    document.getElementById('inspector').style.display = 'none';
+    refreshInsertAfterOptions();
+    document.getElementById('an-error').style.display = 'none';
+    document.getElementById('addnode-panel').style.display = 'block';
+  });
+
+  document.getElementById('an-cancel').addEventListener('click', function () {
+    document.getElementById('addnode-panel').style.display = 'none';
+  });
+
+  document.getElementById('an-type').addEventListener('change', renderParamFields);
+
+  document.getElementById('an-submit').addEventListener('click', async function () {
+    const className = document.getElementById('an-type').value;
+    const name = document.getElementById('an-name').value.trim();
+    const insertAfter = document.getElementById('an-after').value;
+    const errBox = document.getElementById('an-error');
+    errBox.style.display = 'none';
+
+    if (!name) {
+      errBox.textContent = 'Укажите имя узла.';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    const params = {};
+    document.querySelectorAll('#an-params input').forEach(function (inp) {
+      const raw = inp.value.trim();
+      if (raw === '') return;
+      const num = Number(raw);
+      params[inp.dataset.paramName] = isNaN(num) ? raw : num;
+    });
+
+    try {
+      const res = await fetch('/api/add_node', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_name: className, name: name, insert_after: insertAfter, mode: document.getElementById('an-mode').value, params: params })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errBox.textContent = data.error || 'Ошибка добавления узла.';
+        errBox.style.display = 'block';
+        return;
+      }
+      render(data);
+      document.getElementById('addnode-panel').style.display = 'none';
+      document.getElementById('an-name').value = '';
+    } catch (e) {
+      errBox.textContent = 'Нет связи с сервером.';
+      errBox.style.display = 'block';
+    }
+  });
+
+  loadNodeTypes();
+  fetchState();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+mesa>=3.5
+requests>=2.31
+flask>=3.0          # live_server.py (веб-визуализация)
+solara>=1.40        # experiments/gui.py (SolaraViz), опционально
