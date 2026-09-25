@@ -24,6 +24,8 @@ RulePolicy, в записи fallback=True. confidence < contested_floor -- ре�
 import threading
 from dataclasses import dataclass, field
 
+import requests
+
 from src.llm import token_decision, zone_context
 
 
@@ -121,8 +123,12 @@ class TokenLLMPolicy:
         if hit is not None:
             self.cache_hits += 1
             return hit
-        r = token_decision.ask(context, q, model=self.model, lang=self.lang,
-                               yes_letter=letters[0], no_letter=letters[1])
+        try:
+            r = token_decision.ask(context, q, model=self.model, lang=self.lang,
+                                   yes_letter=letters[0], no_letter=letters[1])
+        except requests.RequestException as e:
+            # Ollama недоступна -- не кэшируем, decide() откатится на правило
+            return {"yes": None, "mass": 0.0, "p_yes": 0.0, "raw": f"ошибка Ollama: {e.__class__.__name__}"}
         r = {k: r[k] for k in ("yes", "mass", "p_yes", "raw")}
         self.calls += 1
         with self._cache_lock:
@@ -163,8 +169,7 @@ class TokenLLMPolicy:
             return self._fallback(zone, rec, r1)
         if self._yes(r1):
             rec.update(decision="REFUSE", confidence=r1["confidence"])
-            return self._done(rec, Decision("REFUSE", 0.0, f"LLM: уступить? ДА (уверенность "
-                                                            f"{r1['confidence']:.2f})"))
+            return self._done(rec, Decision("REFUSE", 0.0, f"LLM: уступить? ДА ({self._how(r1)})"))
 
         r2 = self._ask(ctx, zone_context.question("inflate", zone.name, self.lang, self.question_variant))
         rec.update(q2_p_yes=r2["p"], q2_conf=r2["confidence"], q2_mass=r2["mass"])
@@ -180,11 +185,18 @@ class TokenLLMPolicy:
         if self._yes(r2):
             rec.update(decision="MODIFY", confidence=r2["confidence"])
             return self._done(rec, Decision("MODIFY", zone.need * self.inflate_factor,
-                                            f"LLM: завысить? ДА (уверенность {r2['confidence']:.2f})"))
+                                            f"LLM: уступить? НЕТ ({self._how(r1)}); "
+                                            f"завысить? ДА ({self._how(r2)})"))
         rec.update(decision="ACCEPT", confidence=r2["confidence"])
         return self._done(rec, Decision("ACCEPT", zone.need,
-                                        f"LLM: уступить? НЕТ, завысить? НЕТ (уверенность "
-                                        f"{r2['confidence']:.2f})"))
+                                        f"LLM: уступить? НЕТ ({self._how(r1)}); "
+                                        f"завысить? НЕТ ({self._how(r2)})"))
+
+    def _how(self, r) -> str:
+        """Как получен ответ: при случайном выборе важна P(ДА), иначе -- уверенность."""
+        if self.sample:
+            return f"P(ДА)={r['p']:.2f}, случайный выбор"
+        return f"уверенность {r['confidence']:.2f}"
 
     def _done(self, rec, d: Decision) -> Decision:
         rec["contested"] = rec["confidence"] < self.contested_floor
@@ -197,7 +209,8 @@ class TokenLLMPolicy:
         rec.update(decision=d.decision, confidence=None, contested=False, fallback=True,
                    raw=r["raw"])
         self.records.append(rec)
-        d.reason = "откат на правило (плохой ответ LLM): " + d.reason
+        why = "Ollama недоступна" if r["raw"].startswith("ошибка Ollama") else "плохой ответ LLM"
+        d.reason = f"откат на правило ({why}): " + d.reason
         d.meta = rec
         return d
 

@@ -31,6 +31,9 @@ from src.agents.node_agent import NodeAgent
 from src.model.pipeline_model import PipelineModel
 from src.model.factory_model import FactoryModel
 from src.model.conflict_model import ConflictModel
+from src.model.zone_policies import RulePolicy, TokenLLMPolicy
+from src.llm import token_decision
+from src.llm.zone_context import BLOCKS
 
 app = Flask(__name__, static_folder=None)
 
@@ -69,10 +72,46 @@ MODEL_LABELS = {
 state = {"model_name": "pipeline", "model": MODEL_FACTORIES["pipeline"](), "decision_mode": "passive"}
 
 
+# Режимы в интерфейсе:
+#   passive         -- узлы/зоны не принимают решений
+#   autonomous      -- решают по правилу (пороги)
+#   autonomous_llm  -- только модели конфликта: решает локальная LLM одним
+#                      токеном (debias + случайный выбор с вероятностью P(ДА),
+#                      иначе qwen2.5:1.5b почти всегда отвечает ACCEPT --
+#                      см. docs/llm_experiment_report.md)
+UI_MODES = ("passive", "autonomous", "autonomous_llm")
+
+
+def _llm_policy():
+    return TokenLLMPolicy(blocks=BLOCKS, debias=True, sample=True)
+
+
+def _ollama_ok() -> bool:
+    try:
+        import requests
+        return requests.get(f"{token_decision.OLLAMA_HOST}/api/version", timeout=2).ok
+    except Exception:
+        return False
+
+
 def _apply_decision_mode(model) -> None:
-    # режим (пассивный / автономный) сохраняется при пересоздании модели
-    if hasattr(model, "set_decision_mode"):
-        model.set_decision_mode(state["decision_mode"])
+    # режим сохраняется при пересоздании модели; у цепочек LLM нет --
+    # для них "autonomous_llm" означает обычный автономный режим (правило)
+    if not hasattr(model, "set_decision_mode"):
+        return
+    mode = state["decision_mode"]
+    if mode == "autonomous_llm" and isinstance(model, ConflictModel):
+        model.zone_policy = _llm_policy()
+    elif isinstance(model, ConflictModel):
+        model.zone_policy = RulePolicy()
+    model.set_decision_mode("passive" if mode == "passive" else "autonomous")
+
+
+def _ui_mode(model):
+    mode = getattr(model, "decision_mode", None)
+    if mode == "autonomous" and isinstance(getattr(model, "zone_policy", None), TokenLLMPolicy):
+        return "autonomous_llm"
+    return mode
 
 # Flask по умолчанию обрабатывает запросы в разных потоках, а модель одна и
 # общая: без блокировки "Пуск" (POST /api/step) и параллельный GET /api/state
@@ -139,7 +178,8 @@ def serialize() -> dict:
         "model_labels": MODEL_LABELS,
         "conflict": model.conflict_metrics() if hasattr(model, "conflict_metrics") else None,
         "completed": getattr(model, "completed_tasks", 0),
-        "decision_mode": getattr(model, "decision_mode", None),  # None -- модель без режимов (конфликтные)
+        "decision_mode": _ui_mode(model),
+        "llm_available": isinstance(model, ConflictModel),  # пункт "автономный (LLM)" -- только у конфликтных
         "nodes": [node.state_dict() for node in model.nodes],
         "edges": edges_for(model),
     }
@@ -176,20 +216,24 @@ def api_reset():
 
 @app.route("/api/decision_mode", methods=["POST"])
 def api_decision_mode():
-    """Переключить режим узлов: "passive" (узлы только передают поток) или
-    "autonomous" (узлы сами принимают решения). Действует сразу, без
-    пересоздания модели."""
+    """Переключить режим: "passive", "autonomous" (правило) или
+    "autonomous_llm" (решает локальная LLM; только модели конфликта).
+    Действует сразу, без пересоздания модели."""
     body = request.get_json(force=True)
     mode = body.get("mode")
+    if mode not in UI_MODES:
+        return jsonify({"error": f"unknown decision_mode '{mode}', expected one of {UI_MODES}"}), 400
     with model_lock:
         model = state["model"]
         if not hasattr(model, "set_decision_mode"):
             return jsonify({"error": "у этой модели нет режимов работы узлов"}), 400
-        try:
-            model.set_decision_mode(mode)
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
+        if mode == "autonomous_llm":
+            if not isinstance(model, ConflictModel):
+                return jsonify({"error": "LLM подключена только к моделям конфликта"}), 400
+            if not _ollama_ok():
+                return jsonify({"error": "Ollama недоступна -- запустите `ollama serve`"}), 400
         state["decision_mode"] = mode
+        _apply_decision_mode(model)
         return jsonify(serialize())
 
 

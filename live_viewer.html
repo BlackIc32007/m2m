@@ -135,6 +135,7 @@
     <select id="mode-select" class="btn" title="Режим узлов">
       <option value="passive">Режим: пассивный</option>
       <option value="autonomous">Режим: автономный</option>
+      <option value="autonomous_llm" id="mode-llm">Режим: автономный (LLM)</option>
     </select>
     <div class="sep"></div>
     <button class="btn primary" id="btn-play"><span id="play-label">Пуск</span></button>
@@ -314,7 +315,9 @@
 
     syncModelSelect(data);
     const modeSel = document.getElementById('mode-select');
-    modeSel.style.display = data.decision_mode ? '' : 'none';  // у конфликтных моделей режимов нет
+    modeSel.style.display = data.decision_mode ? '' : 'none';
+    // LLM подключена только к моделям конфликта
+    document.getElementById('mode-llm').hidden = !data.llm_available;
     if (data.decision_mode && modeSel.value !== data.decision_mode) modeSel.value = data.decision_mode;
     renderConflict(data.conflict);
     const positions = layoutPositions(data.nodes, data.edges);
@@ -574,7 +577,10 @@
   });
 
   document.getElementById('mode-select').addEventListener('change', function (evt) {
-    postJson('/api/decision_mode', { mode: evt.target.value });
+    if (evt.target.value === 'autonomous_llm') toast('LLM решает за каждую зону: один шаг ~1–2 с');
+    postJson('/api/decision_mode', { mode: evt.target.value }).then(function (data) {
+      if (!data && lastState) evt.target.value = lastState.decision_mode;  // ошибка -- вернуть прежний режим
+    });
   });
 
   document.getElementById('model-select').addEventListener('change', function (evt) {

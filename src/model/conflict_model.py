@@ -299,6 +299,12 @@ class ZoneAgent(ConflictAgent):
         })
         if self.bid:
             d["bid"] = round(self.bid, 2)
+        meta = self.decision_meta or {}
+        if "q1_p_yes" in meta:  # решение приняла LLM -- показать её ответы
+            d["llm_p_yield"] = None if meta["q1_p_yes"] is None else round(meta["q1_p_yes"], 3)
+            d["llm_p_inflate"] = None if meta.get("q2_p_yes") is None else round(meta["q2_p_yes"], 3)
+            d["llm_mass"] = round(min(v for v in (meta.get("q1_mass"), meta.get("q2_mass")) if v is not None), 3)
+            d["llm_fallback"] = meta["fallback"]
         return d
 
 
