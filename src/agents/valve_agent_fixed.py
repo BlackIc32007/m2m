@@ -48,7 +48,7 @@ class ValveAgentRefuse(NodeAgent):
 
     def _decide(self) -> None:
         """Решение клапана вместо общего правила NodeAgent: REFUSE по
-        собственному порогу с гистерезисом. В режиме "pipe" -- труба."""
+        собственному порогу с гистерезисом. В пассивном режиме -- без решений."""
         if not self.decides:
             self.throttled = False
             return
@@ -108,7 +108,7 @@ class ValveAgentModify(NodeAgent):
         # MODIFY: подстраиваем скорость обработки (NodeAgent.step вызывает
         # _decide до того, как решит, начинать ли новую задачу). Во входе
         # узел никогда не отказывает -- он просто медленнее его переваривает.
-        # В режиме "pipe" -- всегда базовая скорость.
+        # В пассивном режиме -- всегда базовая скорость.
         if self.decides and self.load >= self.safety_threshold:
             self.processing_time = self._base_processing_time * self.throttle_factor
         else:

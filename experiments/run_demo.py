@@ -34,8 +34,8 @@ def main():
     parser.add_argument("--fail-duration", type=int, default=5, help="На сколько шагов отказывает Machine_B")
     parser.add_argument("--with-ollama", action="store_true", help="Запрашивать рекомендацию у Ollama на каждом шаге")
     parser.add_argument("--model", default="qwen2.5:3b", help="Название модели Ollama")
-    parser.add_argument("--mode", choices=["pipe", "agent"], default="pipe",
-                        help="pipe -- узлы как просто труба; agent -- узлы сами решают ACCEPT/REFUSE")
+    parser.add_argument("--mode", choices=["passive", "autonomous"], default="passive",
+                        help="passive -- узлы только передают поток; autonomous -- узлы сами решают ACCEPT/REFUSE")
     parser.add_argument("--quiet", action="store_true", help="Не печатать визуализацию на каждом шаге")
     args = parser.parse_args()
 

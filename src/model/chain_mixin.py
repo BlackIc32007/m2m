@@ -17,13 +17,13 @@ add_node поддерживает два режима:
 from mesa.agentset import AgentSet
 
 
-DECISION_MODES = ("pipe", "agent")
+DECISION_MODES = ("passive", "autonomous")
 
 
 class ChainModelMixin:
-    # "pipe" -- узлы работают как труба; "agent" -- каждый узел сам решает
-    # ACCEPT/REFUSE по своему локальному контексту (см. NodeAgent._decide).
-    decision_mode = "pipe"
+    # "passive" -- узлы только передают поток; "autonomous" -- каждый узел сам
+    # решает ACCEPT/REFUSE по своему локальному контексту (см. NodeAgent._decide).
+    decision_mode = "passive"
 
     def set_decision_mode(self, mode: str) -> None:
         if mode not in DECISION_MODES:

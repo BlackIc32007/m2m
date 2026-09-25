@@ -21,7 +21,7 @@ class FactoryModel(ChainModelMixin, Model):
         task_arrival_interval: int = 2,   # раз в сколько шагов на входе появляется новая задача
         processing_time: int = 2,         # сколько шагов узел обрабатывает одну задачу
         queue_capacity: int = 10,
-        decision_mode: str = "pipe",      # "pipe" -- узлы как труба, "agent" -- узлы решают сами
+        decision_mode: str = "passive",   # "passive" -- узлы только передают поток, "autonomous" -- решают сами
         logger=None,
         rng=None,
     ):

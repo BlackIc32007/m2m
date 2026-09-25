@@ -22,10 +22,10 @@ from src.model.pipeline_model import PipelineModel
 
 
 def run_and_report(label, valve_class, valve_kwargs, steps):
-    # decision_mode="agent": клапаны принимают решения (в режиме "pipe" все три
-    # варианта вели бы себя одинаково -- как обычная труба)
+    # автономный режим: клапаны принимают решения (в пассивном все три
+    # варианта вели бы себя одинаково -- без решений)
     model = PipelineModel(valve_class=valve_class, valve_kwargs=valve_kwargs,
-                          decision_mode="agent", rng=42)
+                          decision_mode="autonomous", rng=42)
     for _ in range(steps):
         model.step()
 

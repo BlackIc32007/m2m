@@ -20,9 +20,10 @@ NodeAgent -- узел производственной цепочки (Mesa Agen
 
 Два режима работы (model.decision_mode, переключается на ходу):
 
-    "pipe"  -- узел как "просто труба": ничего не решает, принимает задачу,
-               если в очереди есть место, обрабатывает и передаёт дальше.
-    "agent" -- узел сам решает, принимать ли новые задачи (ACCEPT/REFUSE),
+    "passive"    -- пассивный: узел не принимает решений, только передаёт
+                    поток -- принимает задачу, если в очереди есть место,
+                    обрабатывает и передаёт дальше.
+    "autonomous" -- автономный: узел сам решает, принимать ли новые задачи (ACCEPT/REFUSE),
                глядя только на свой локальный контекст:
                  REFUSE, если очередь >= stop_threshold или следующий узел
                         в отказе;
@@ -74,7 +75,7 @@ class NodeAgent(Agent):
         # -------- для сценария отказа/восстановления --------
         self._failed_steps_left = 0
 
-        # -------- решение агента (используется только в режиме "agent") --------
+        # -------- решение агента (используется только в автономном режиме) --------
         self.stop_threshold = stop_threshold
         self.resume_threshold = resume_threshold
         self.accepting = True           # решение: принимаю ли новые задачи
@@ -108,17 +109,17 @@ class NodeAgent(Agent):
             "available": self.available,
             "priority": self.priority,
         } | ({} if self.is_endpoint else {
-            "decision": ("ACCEPT" if self.accepting else "REFUSE") if self.decides else "PIPE",
+            "decision": ("ACCEPT" if self.accepting else "REFUSE") if self.decides else None,
             "decision_reason": self.last_decision_reason if self.decides else None,
         })
 
     # ------------------------------------------------------------------ #
-    # Решение агента: ACCEPT / REFUSE (только в режиме "agent").
+    # Решение агента: ACCEPT / REFUSE (только в автономном режиме).
     # ------------------------------------------------------------------ #
     @property
     def decides(self) -> bool:
-        """True -- узел сам принимает решения; False -- работает как труба."""
-        return not self.is_endpoint and getattr(self.model, "decision_mode", "pipe") == "agent"
+        """True -- узел сам принимает решения; False -- пассивный режим."""
+        return not self.is_endpoint and getattr(self.model, "decision_mode", "passive") == "autonomous"
 
     def _decide(self) -> None:
         if not self.decides:

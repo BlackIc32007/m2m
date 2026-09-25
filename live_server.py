@@ -66,11 +66,11 @@ MODEL_LABELS = {
     "conflict_auction": "C. Аукцион",
 }
 
-state = {"model_name": "pipeline", "model": MODEL_FACTORIES["pipeline"](), "decision_mode": "pipe"}
+state = {"model_name": "pipeline", "model": MODEL_FACTORIES["pipeline"](), "decision_mode": "passive"}
 
 
 def _apply_decision_mode(model) -> None:
-    # режим (труба / агент) сохраняется при пересоздании модели
+    # режим (пассивный / автономный) сохраняется при пересоздании модели
     if hasattr(model, "set_decision_mode"):
         model.set_decision_mode(state["decision_mode"])
 
@@ -176,14 +176,15 @@ def api_reset():
 
 @app.route("/api/decision_mode", methods=["POST"])
 def api_decision_mode():
-    """Переключить режим узлов: "pipe" (просто труба) или "agent" (узлы
-    сами решают ACCEPT/REFUSE). Действует сразу, без пересоздания модели."""
+    """Переключить режим узлов: "passive" (узлы только передают поток) или
+    "autonomous" (узлы сами принимают решения). Действует сразу, без
+    пересоздания модели."""
     body = request.get_json(force=True)
     mode = body.get("mode")
     with model_lock:
         model = state["model"]
         if not hasattr(model, "set_decision_mode"):
-            return jsonify({"error": "у этой модели нет режимов труба/агент"}), 400
+            return jsonify({"error": "у этой модели нет режимов работы узлов"}), 400
         try:
             model.set_decision_mode(mode)
         except ValueError as e:

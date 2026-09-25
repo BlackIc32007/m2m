@@ -27,7 +27,7 @@ class PipelineModel(ChainModelMixin, Model):
         valve_safety_threshold: float = 0.5,
         valve_class=ValveAgent,
         valve_kwargs: dict | None = None,  # если задано -- вместо safety_threshold
-        decision_mode: str = "pipe",      # "pipe" -- узлы как труба, "agent" -- узлы решают сами
+        decision_mode: str = "passive",   # "passive" -- узлы только передают поток, "autonomous" -- решают сами
         logger=None,
         rng=None,
     ):

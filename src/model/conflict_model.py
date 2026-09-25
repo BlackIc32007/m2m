@@ -22,12 +22,27 @@ conflict_model.py -- модели КОНФЛИКТА "локальная цел�
   "auction"     -- C. HubAgent-аукционист: доли пропорциональны ставкам
                    bid = запрос * приоритет * (1 + 0.25 * шагов_без_полного_удовлетворения)
 
+Два режима зон (model.decision_mode, переключается на ходу):
+  "passive"    -- зона не принимает решений: запрашивает ровно свою реальную
+                  потребность (need = min(queue, max_intake)).
+  "autonomous" -- зона сама решает по своему локальному контексту:
+                  ACCEPT -- запросить реальную потребность;
+                  REFUSE -- запас мал (queue < refuse_threshold * capacity):
+                            в этот шаг ничего не просить, уступить ресурс;
+                  MODIFY -- недополучает inflate_after шагов подряд: завысить
+                            запрос в inflate_factor раз. Больше потребности
+                            зона забрать не может -- излишек теряется.
+  Распределение идёт по заявленному запросу (demand), а оптимум и метрики --
+  по реальной потребности (need): так видно, чего стоит системе поведение зон.
+
 Интерфейс для live_server.py: steps, nodes, completed_tasks, trigger_failure,
 force_recover, add_node, conflict_metrics(); у узлов -- name, downstream(s), state_dict().
 """
 import math
 
 import mesa
+
+from src.model.chain_mixin import DECISION_MODES
 
 
 # ---------------------------------------------------------------- #
@@ -180,13 +195,23 @@ class ZoneAgent(ConflictAgent):
     """Зона со своей ЛОКАЛЬНОЙ целью: забрать как можно больше ресурса."""
 
     def __init__(self, model, name, priority=1.0, arrival_rate=3.0,
-                 capacity=20.0, max_intake=5.0):
+                 capacity=20.0, max_intake=5.0, refuse_threshold=0.15,
+                 inflate_after=2, inflate_factor=2.0):
         super().__init__(model, name, "zone")
         self.priority = priority
         self.arrival_rate = arrival_rate
         self.capacity = capacity
         self.max_intake = max_intake
-        self.demand = 0.0
+        # параметры решения (используются только в автономном режиме)
+        self.refuse_threshold = refuse_threshold
+        self.inflate_after = inflate_after
+        self.inflate_factor = inflate_factor
+        self.need = 0.0       # реальная потребность в этот шаг
+        self.demand = 0.0     # заявленный запрос (в пассивном режиме == need)
+        self.overdraw = 0.0   # получено сверх потребности -- потеряно
+        self.decision = None  # ACCEPT / REFUSE / MODIFY (None -- пассивный режим)
+        self.decision_reason = None
+        self.decision_counts = {"ACCEPT": 0, "REFUSE": 0, "MODIFY": 0}
         self.allocated = 0.0
         self.bid = 0.0
         self.unmet_streak = 0
@@ -197,9 +222,30 @@ class ZoneAgent(ConflictAgent):
         self.queue = min(self.capacity, self.queue + add)
 
     def declare(self):
-        """Локальная цель: запросить максимум."""
+        """Заявить запрос на этот шаг: в пассивном режиме -- реальную
+        потребность, в автономном -- по решению зоны (_decide)."""
         self.allocated = 0.0
-        self.demand = 0.0 if self.is_failed else min(self.queue, self.max_intake)
+        self.need = 0.0 if self.is_failed else min(self.queue, self.max_intake)
+        self.demand = self.need
+        self.decision = self.decision_reason = None
+        if self.model.decision_mode == "autonomous" and self.need > 1e-9:
+            self._decide()
+
+    def _decide(self):
+        if self.queue < self.refuse_threshold * self.capacity:
+            self.decision = "REFUSE"
+            self.demand = 0.0
+            self.decision_reason = (f"запас {self.queue:.1f} < {self.refuse_threshold:.0%} ёмкости -- "
+                                    "не срочно, уступаю ресурс другим")
+        elif self.unmet_streak >= self.inflate_after:
+            self.decision = "MODIFY"
+            self.demand = self.need * self.inflate_factor
+            self.decision_reason = (f"недополучаю {self.unmet_streak} шаг(а) подряд -- "
+                                    f"завышаю запрос в {self.inflate_factor:g} раза")
+        else:
+            self.decision = "ACCEPT"
+            self.decision_reason = "запрашиваю реальную потребность"
+        self.decision_counts[self.decision] += 1
 
     def grant(self, amount):
         self.allocated += amount
@@ -215,20 +261,26 @@ class ZoneAgent(ConflictAgent):
             self.grant(take)
 
     def settle(self):
-        served = min(self.allocated, self.queue)
+        # больше реальной потребности зона забрать не может -- излишек теряется
+        served = min(self.allocated, self.need, self.queue)
+        self.overdraw = self.allocated - served
         self.allocated = served
         self.queue -= served
         self.total_yield += self.priority * math.sqrt(served)
-        if self.demand > 1e-9 and served < self.demand - 1e-9:
+        if self.decision == "REFUSE":
+            pass  # добровольно уступила -- это не "недополучила"
+        elif self.need > 1e-9 and served < self.need - 1e-9:
             self.unmet_streak += 1
         else:
             self.unmet_streak = 0
         self.load = self.queue / self.capacity
         if self.is_failed:
             self.mode = "FAILED"
-        elif self.demand <= 1e-9:
+        elif self.need <= 1e-9:
             self.mode = "NO DEMAND"
-        elif served >= self.demand - 1e-9:
+        elif self.decision == "REFUSE":
+            self.mode = "YIELDED"
+        elif served >= self.need - 1e-9:
             self.mode = "FULL"
         elif served > 1e-9:
             self.mode = "PARTIAL"
@@ -240,9 +292,12 @@ class ZoneAgent(ConflictAgent):
         d = super().state_dict()
         d.update({
             "priority": self.priority,
+            "need": round(self.need, 2),
             "demand": round(self.demand, 2),
             "allocated": round(self.allocated, 2),
-            "deficit": round(self.demand - self.allocated, 2),
+            "deficit": round(self.need - self.allocated, 2),
+            "decision": self.decision,
+            "decision_reason": self.decision_reason,
             "total_yield": round(self.total_yield, 2),
         })
         if self.bid:
@@ -278,7 +333,8 @@ SCHEME_INFO = {
 
 class ConflictModel(mesa.Model):
     def __init__(self, scheme="distributor", policy="proportional",
-                 supply=6.0, tank_capacity=12.0, seed=42, zones=None):
+                 supply=6.0, tank_capacity=12.0, seed=42, zones=None,
+                 decision_mode="passive"):
         try:
             super().__init__(rng=seed)      # Mesa >= 3.4
         except TypeError:
@@ -287,6 +343,7 @@ class ConflictModel(mesa.Model):
             raise ValueError(f"unknown scheme '{scheme}'")
         self.scheme = scheme
         self.policy = policy
+        self.set_decision_mode(decision_mode)
         self.supply = supply
         self.total_served = 0.0
         self.cum_yield = 0.0
@@ -309,9 +366,10 @@ class ConflictModel(mesa.Model):
 
         self.datacollector = mesa.DataCollector(
             model_reporters={
-                "total_demand": lambda m: sum(z.demand for z in m.zones),
+                "total_need": lambda m: sum(z.need for z in m.zones),
+                "total_requested": lambda m: sum(z.demand for z in m.zones),
                 "total_allocated": lambda m: sum(z.allocated for z in m.zones),
-                "deficit": lambda m: sum(z.demand - z.allocated for z in m.zones),
+                "deficit": lambda m: sum(z.need - z.allocated for z in m.zones),
                 "efficiency": lambda m: m.efficiency,
                 "fairness": lambda m: m.fairness,
             },
@@ -321,6 +379,11 @@ class ConflictModel(mesa.Model):
     @property
     def completed_tasks(self):
         return int(self.total_served)
+
+    def set_decision_mode(self, mode):
+        if mode not in DECISION_MODES:
+            raise ValueError(f"unknown decision_mode '{mode}', expected one of {DECISION_MODES}")
+        self.decision_mode = mode
 
     def _find(self, name):
         for n in self.nodes:
@@ -347,7 +410,7 @@ class ConflictModel(mesa.Model):
     @property
     def fairness(self):
         """Индекс Джайна по доле удовлетворённого спроса."""
-        ratios = [z.allocated / z.demand for z in self.zones if z.demand > 1e-9]
+        ratios = [z.allocated / z.need for z in self.zones if z.need > 1e-9]
         sq = sum(x * x for x in ratios)
         return sum(ratios) ** 2 / (len(ratios) * sq) if ratios and sq > 0 else 1.0
 
@@ -361,7 +424,7 @@ class ConflictModel(mesa.Model):
         self.hub.prepare()                               # 4. сколько ресурса доступно
 
         # эталон глобального оптимума для sum(w*sqrt(x)):  x_i ~ w_i^2
-        opt = weighted_waterfill([z.demand for z in self.zones],
+        opt = weighted_waterfill([z.need for z in self.zones],
                                  [z.priority ** 2 for z in self.zones], self.hub.available)
         self.cum_optimal += sum(z.priority * math.sqrt(x) for z, x in zip(self.zones, opt))
 
@@ -377,25 +440,36 @@ class ConflictModel(mesa.Model):
         self.total_served += allocated
         self.cum_yield += sum(z.priority * math.sqrt(z.allocated) for z in self.zones)
         if self.scheme != "shared_tank":
+            # не выдано никому + выдано сверх потребности (завышенные запросы)
             self.cum_wasted += max(0.0, self.hub.available - allocated)
+        else:
+            # из резервуара забрали больше, чем смогли использовать
+            self.cum_wasted += sum(z.overdraw for z in self.zones)
         self.datacollector.collect(self)                 # 7. метрики
 
     def conflict_metrics(self):
         zones = self.zones
-        reqs = [z.demand for z in zones]
+        needs = [z.need for z in zones]
         alloc = [z.allocated for z in zones]
         info = SCHEME_INFO[self.scheme]
+        if self.decision_mode == "autonomous":
+            local_goal = ("каждая зона решает сама: ACCEPT -- запросить потребность, "
+                          "REFUSE -- уступить, если не срочно, MODIFY -- завысить запрос при нехватке")
+        else:
+            local_goal = "зоны не принимают решений: каждая запрашивает свою реальную потребность"
         title = info["title"] + (f" -- {self.policy}" if self.scheme == "distributor" else "")
         return {
             "title": title,
             "mechanism": info["mechanism"],
-            "local_goal": "каждая зона: забрать максимум ресурса себе",
+            "decision_mode": self.decision_mode,
+            "local_goal": local_goal,
             "global_goal": "система: максимум sum(приоритет x sqrt(выделено))",
             "supply": round(self.source.produced, 2),
             "available": round(self.hub.available, 2),
-            "total_demand": round(sum(reqs), 2),
+            "total_demand": round(sum(needs), 2),
+            "total_requested": round(sum(z.demand for z in zones), 2),
             "total_allocated": round(sum(alloc), 2),
-            "deficit": round(sum(reqs) - sum(alloc), 2),
+            "deficit": round(sum(needs) - sum(alloc), 2),
             "cum_wasted": round(self.cum_wasted, 2),
             "cum_yield": round(self.cum_yield, 2),
             "cum_optimal": round(self.cum_optimal, 2),
@@ -403,10 +477,13 @@ class ConflictModel(mesa.Model):
             "fairness": round(self.fairness, 3),
             "tank_level": round(self.hub.level, 2) if self.scheme == "shared_tank" else None,
             "zones": [
-                {"name": z.name, "priority": z.priority, "demand": round(z.demand, 2),
+                {"name": z.name, "priority": z.priority, "need": round(z.need, 2),
+                 "demand": round(z.demand, 2),
                  "allocated": round(z.allocated, 2),
-                 "deficit": round(z.demand - z.allocated, 2),
-                 "bid": round(z.bid, 2) if z.bid else None}
+                 "deficit": round(z.need - z.allocated, 2),
+                 "bid": round(z.bid, 2) if z.bid else None,
+                 "decision": z.decision, "decision_reason": z.decision_reason,
+                 "decision_counts": dict(z.decision_counts)}
                 for z in zones
             ],
         }

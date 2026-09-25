@@ -39,8 +39,8 @@ class {class_name}(NodeAgent):
         Вызывается NodeAgent в начале каждого шага и перед приёмом задачи.
         Обычно здесь сравнивают self.load (или другую метрику) с
         self.{param_name}: self.accepting = False -- REFUSE новых задач,
-        смена self.processing_time -- MODIFY. В режиме "pipe"
-        (self.decides == False) узел должен вести себя как труба.
+        смена self.processing_time -- MODIFY. В пассивном режиме
+        (self.decides == False) узел только передаёт поток.
         Если не переопределять -- работает общее правило NodeAgent.
         """
         super()._decide()

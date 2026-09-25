@@ -133,8 +133,8 @@
       <option value="factory">factory (Machine A/Buffer/B)</option>
     </select>
     <select id="mode-select" class="btn" title="Режим узлов">
-      <option value="pipe">Режим: просто труба</option>
-      <option value="agent">Режим: агент решает</option>
+      <option value="passive">Режим: пассивный</option>
+      <option value="autonomous">Режим: автономный</option>
     </select>
     <div class="sep"></div>
     <button class="btn primary" id="btn-play"><span id="play-label">Пуск</span></button>
@@ -430,22 +430,27 @@
     cbtn.textContent = conflictHidden ? 'Показать метрики' : 'Скрыть метрики';
     if (conflictHidden) { panel.style.display = 'none'; return; }
     panel.style.display = 'block';
-    const maxV = Math.max(5, ...c.zones.map(function (z) { return z.demand; }));
+    const maxV = Math.max(5, ...c.zones.map(function (z) { return Math.max(z.need, z.demand); }));
+    const DECISION_COLORS = { ACCEPT: '#52d7e8', REFUSE: '#8a9aa6', MODIFY: '#f0b429' };
     let h = '<div class="title">' + c.title + '</div>' +
       '<div class="mech">' + c.mechanism + '</div>' +
       '<div class="goal"><b>Локальная цель:</b> ' + c.local_goal + '</div>' +
       '<div class="goal g"><b>Глобальная цель:</b> ' + c.global_goal + '</div>';
     c.zones.forEach(function (z) {
-      h += '<div class="zrow"><div class="zhead"><span>' + z.name + ' · приор. ' + z.priority +
-        (z.bid ? ' · ставка ' + z.bid : '') + '</span><span>' + z.allocated + ' / ' + z.demand +
+      const tag = z.decision
+        ? ' <b style="color:' + DECISION_COLORS[z.decision] + '">' + z.decision + '</b>' : '';
+      const requested = Math.abs(z.demand - z.need) > 0.05 ? ' · запросил ' + z.demand : '';
+      h += '<div class="zrow"><div class="zhead"><span>' + z.name + ' · приор. ' + z.priority + tag +
+        (z.bid ? ' · ставка ' + z.bid : '') + '</span><span>' + z.allocated + ' / ' + z.need + requested +
         (z.deficit > 0.05 ? ' · дефицит ' + z.deficit : '') + '</span></div>' +
-        '<div class="bar"><div class="dem" style="width:' + (100 * z.demand / maxV) + '%"></div>' +
-        '<div class="alc" style="width:' + (100 * z.allocated / maxV) + '%"></div></div></div>';
+        '<div class="bar"><div class="dem" style="width:' + (100 * z.need / maxV) + '%"></div>' +
+        '<div class="alc" style="width:' + (100 * z.allocated / maxV) + '%"></div></div>' +
+        (z.decision_reason ? '<div class="legend">' + z.decision_reason + '</div>' : '') + '</div>';
     });
-    h += '<div class="legend">красный фон — спрос, голубой — выделено</div>';
+    h += '<div class="legend">красный фон — реальная потребность, голубой — выделено</div>';
     h += '<div class="kpis">' +
       kpi('Предложение / доступно', c.supply + ' / ' + c.available) +
-      kpi('Суммарный спрос', c.total_demand) +
+      kpi('Потребность / запрошено', c.total_demand + ' / ' + c.total_requested) +
       kpi('Дефицит за шаг', c.deficit) +
       kpi('Эффективность vs оптимум', (c.efficiency * 100).toFixed(1) + '%') +
       kpi('Справедливость (Jain)', c.fairness) +
