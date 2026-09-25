@@ -10,8 +10,7 @@ boilerplate каждый раз, когда появляется новый ти
 
 Создаст src/agents/pump_agent.py (или compressor_agent.py) с классом,
 готовым к редактированию -- структура методов такая же, как в
-src/agents/valve_agent.py: _evaluate_local_context / accept_task / step /
-state_dict.
+src/agents/valve_agent.py: _decide / accept_task / state_dict.
 """
 import argparse
 import re
@@ -34,24 +33,17 @@ class {class_name}(NodeAgent):
         # TODO: добавьте сюда остальное внутреннее состояние узла,
         # если одного {param_name} недостаточно.
 
-    def _evaluate_local_context(self) -> None:
+    def _decide(self) -> None:
         """TODO: локальная логика принятия решения узла.
 
+        Вызывается NodeAgent в начале каждого шага и перед приёмом задачи.
         Обычно здесь сравнивают self.load (или другую метрику) с
-        self.{param_name} и переключают внутренний режим узла --
-        см. ValveAgent._evaluate_local_context для примера ACCEPT/MODIFY.
+        self.{param_name}: self.accepting = False -- REFUSE новых задач,
+        смена self.processing_time -- MODIFY. В режиме "pipe"
+        (self.decides == False) узел должен вести себя как труба.
+        Если не переопределять -- работает общее правило NodeAgent.
         """
-        pass
-
-    def accept_task(self, task) -> bool:
-        """TODO: переопределите, если узел должен уметь отвечать REFUSE
-        на новые задачи при перегрузке (см. ValveAgentRefuse.accept_task).
-        По умолчанию просто делегирует в NodeAgent."""
-        return super().accept_task(task)
-
-    def step(self) -> None:
-        self._evaluate_local_context()
-        super().step()
+        super()._decide()
 
     def state_dict(self) -> dict:
         d = super().state_dict()

@@ -46,6 +46,15 @@ class ValveAgentRefuse(NodeAgent):
         self.recovery_threshold = recovery_threshold
         self.throttled = False  # НЕ путать с self.state -- это отдельный сигнал
 
+    def _decide(self) -> None:
+        """Решение клапана вместо общего правила NodeAgent: REFUSE по
+        собственному порогу с гистерезисом. В режиме "pipe" -- труба."""
+        if not self.decides:
+            self.throttled = False
+            return
+        self._update_throttle()
+        self.accepting = not self.throttled  # NodeAgent.accept_task отказывает по этому флагу
+
     def _update_throttle(self) -> None:
         """Единственное место, где меняется флаг throttled (с гистерезисом).
 
@@ -68,28 +77,11 @@ class ValveAgentRefuse(NodeAgent):
                     event="unrestricted",
                 )
 
-    def accept_task(self, task) -> bool:
-        # Решение ACCEPT/REFUSE принимается независимо от self.state.
-        self._update_throttle()
-
-        if self.throttled:
-            if self.logger:
-                self.logger.log_event(
-                    simulation_step=self.model.steps, node_id=self.name,
-                    event="task_refused_throttled", task_id=task.task_id,
-                )
-            return False  # REFUSE -- задача остаётся у отправителя (Pump)
-
-        return super().accept_task(task)  # ACCEPT -- обычная логика NodeAgent
-
-    def step(self) -> None:
-        # Обработка уже принятой очереди НИКОГДА не блокируется throttled --
-        # это и разрывает дедлок: queue продолжает убывать, значит load рано
-        # или поздно упадёт ниже recovery_threshold.
-        super().step()
-        # Обновляем флаг после шага (очередь могла уменьшиться), даже если
-        # accept_task в этом тике не вызывался.
-        self._update_throttle()
+    # accept_task/step -- из NodeAgent: он вызывает _decide() и отказывает,
+    # пока accepting == False (задача остаётся у отправителя -- Pump).
+    # Обработка уже принятой очереди НИКОГДА не блокируется throttled --
+    # это и разрывает дедлок: queue продолжает убывать, значит load рано
+    # или поздно упадёт ниже recovery_threshold.
 
     def state_dict(self) -> dict:
         d = super().state_dict()
@@ -112,16 +104,15 @@ class ValveAgentModify(NodeAgent):
         self.throttle_factor = throttle_factor  # во сколько раз медленнее при перегрузке
         self._base_processing_time = self.processing_time
 
-    def step(self) -> None:
-        # MODIFY: подстраиваем скорость обработки ПЕРЕД тем, как NodeAgent
-        # решит, начинать ли новую задачу. Раз это происходит в step(), а не
-        # в accept_task(), узел никогда не отказывает во входе -- он просто
-        # медленнее его переваривает.
-        if self.load >= self.safety_threshold:
+    def _decide(self) -> None:
+        # MODIFY: подстраиваем скорость обработки (NodeAgent.step вызывает
+        # _decide до того, как решит, начинать ли новую задачу). Во входе
+        # узел никогда не отказывает -- он просто медленнее его переваривает.
+        # В режиме "pipe" -- всегда базовая скорость.
+        if self.decides and self.load >= self.safety_threshold:
             self.processing_time = self._base_processing_time * self.throttle_factor
         else:
             self.processing_time = self._base_processing_time
-        super().step()
 
     def state_dict(self) -> dict:
         d = super().state_dict()

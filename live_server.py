@@ -66,7 +66,13 @@ MODEL_LABELS = {
     "conflict_auction": "C. Аукцион",
 }
 
-state = {"model_name": "pipeline", "model": MODEL_FACTORIES["pipeline"]()}
+state = {"model_name": "pipeline", "model": MODEL_FACTORIES["pipeline"](), "decision_mode": "pipe"}
+
+
+def _apply_decision_mode(model) -> None:
+    # режим (труба / агент) сохраняется при пересоздании модели
+    if hasattr(model, "set_decision_mode"):
+        model.set_decision_mode(state["decision_mode"])
 
 # Flask по умолчанию обрабатывает запросы в разных потоках, а модель одна и
 # общая: без блокировки "Пуск" (POST /api/step) и параллельный GET /api/state
@@ -133,6 +139,7 @@ def serialize() -> dict:
         "model_labels": MODEL_LABELS,
         "conflict": model.conflict_metrics() if hasattr(model, "conflict_metrics") else None,
         "completed": getattr(model, "completed_tasks", 0),
+        "decision_mode": getattr(model, "decision_mode", None),  # None -- модель без режимов (конфликтные)
         "nodes": [node.state_dict() for node in model.nodes],
         "edges": edges_for(model),
     }
@@ -163,6 +170,25 @@ def api_reset():
     with model_lock:
         state["model_name"] = name
         state["model"] = MODEL_FACTORIES[name]()
+        _apply_decision_mode(state["model"])
+        return jsonify(serialize())
+
+
+@app.route("/api/decision_mode", methods=["POST"])
+def api_decision_mode():
+    """Переключить режим узлов: "pipe" (просто труба) или "agent" (узлы
+    сами решают ACCEPT/REFUSE). Действует сразу, без пересоздания модели."""
+    body = request.get_json(force=True)
+    mode = body.get("mode")
+    with model_lock:
+        model = state["model"]
+        if not hasattr(model, "set_decision_mode"):
+            return jsonify({"error": "у этой модели нет режимов труба/агент"}), 400
+        try:
+            model.set_decision_mode(mode)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        state["decision_mode"] = mode
         return jsonify(serialize())
 
 

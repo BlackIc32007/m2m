@@ -17,7 +17,24 @@ add_node поддерживает два режима:
 from mesa.agentset import AgentSet
 
 
+DECISION_MODES = ("pipe", "agent")
+
+
 class ChainModelMixin:
+    # "pipe" -- узлы работают как труба; "agent" -- каждый узел сам решает
+    # ACCEPT/REFUSE по своему локальному контексту (см. NodeAgent._decide).
+    decision_mode = "pipe"
+
+    def set_decision_mode(self, mode: str) -> None:
+        if mode not in DECISION_MODES:
+            raise ValueError(f"unknown decision_mode '{mode}', expected one of {DECISION_MODES}")
+        self.decision_mode = mode
+        for node in self.nodes:
+            node.accepting = True  # новое решение агент примет на ближайшем шаге
+            node.last_decision_reason = None
+        if self.logger:
+            self.logger.log_event(simulation_step=self.steps, node_id="Model",
+                                  event=f"decision_mode_{mode}")
     def _link_chain(self, nodes: list) -> None:
         """nodes -- агенты в порядке цепочки: [Input, ..., Output]."""
         for src, dst in zip(nodes, nodes[1:]):

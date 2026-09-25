@@ -132,6 +132,10 @@
       <option value="pipeline">pipeline (Pump/Valve/Tank)</option>
       <option value="factory">factory (Machine A/Buffer/B)</option>
     </select>
+    <select id="mode-select" class="btn" title="Режим узлов">
+      <option value="pipe">Режим: просто труба</option>
+      <option value="agent">Режим: агент решает</option>
+    </select>
     <div class="sep"></div>
     <button class="btn primary" id="btn-play"><span id="play-label">Пуск</span></button>
     <button class="btn" id="btn-step">Шаг</button>
@@ -309,6 +313,9 @@
     document.getElementById('completed-count').textContent = data.completed;
 
     syncModelSelect(data);
+    const modeSel = document.getElementById('mode-select');
+    modeSel.style.display = data.decision_mode ? '' : 'none';  // у конфликтных моделей режимов нет
+    if (data.decision_mode && modeSel.value !== data.decision_mode) modeSel.value = data.decision_mode;
     renderConflict(data.conflict);
     const positions = layoutPositions(data.nodes, data.edges);
     Object.keys(manualPos).forEach(function (n) { if (positions[n]) positions[n] = manualPos[n]; });
@@ -342,7 +349,8 @@
 
       const sub1 = document.createElementNS(NS, 'text');
       sub1.setAttribute('class', 'node-sub'); sub1.setAttribute('x', 14); sub1.setAttribute('y', 42);
-      sub1.textContent = trunc(node.state.toUpperCase() + (node.mode ? ' · ' + node.mode : '') + (node.current_task ? ' · ' + node.current_task : ''), 26);
+      const decision = node.decision === 'REFUSE' ? ' · REFUSE' : '';
+      sub1.textContent = trunc(node.state.toUpperCase() + decision + (node.mode ? ' · ' + node.mode : '') + (node.current_task ? ' · ' + node.current_task : ''), 26);
       g.appendChild(sub1);
 
       const sub2 = document.createElementNS(NS, 'text');
@@ -558,6 +566,10 @@
     selectedName = null;
     document.getElementById('inspector').style.display = 'none';
     postJson('/api/reset', { model_name: name });
+  });
+
+  document.getElementById('mode-select').addEventListener('change', function (evt) {
+    postJson('/api/decision_mode', { mode: evt.target.value });
   });
 
   document.getElementById('model-select').addEventListener('change', function (evt) {

@@ -21,6 +21,7 @@ class FactoryModel(ChainModelMixin, Model):
         task_arrival_interval: int = 2,   # раз в сколько шагов на входе появляется новая задача
         processing_time: int = 2,         # сколько шагов узел обрабатывает одну задачу
         queue_capacity: int = 10,
+        decision_mode: str = "pipe",      # "pipe" -- узлы как труба, "agent" -- узлы решают сами
         logger=None,
         rng=None,
     ):
@@ -39,5 +40,6 @@ class FactoryModel(ChainModelMixin, Model):
         self.output = OutputAgent(self, "Output", logger=logger)
 
         self._link_chain([self.input, self.machine_a, self.buffer, self.machine_b, self.output])
+        self.set_decision_mode(decision_mode)
 
     # step / snapshot / trigger_failure / force_recover / add_node -- см. ChainModelMixin.

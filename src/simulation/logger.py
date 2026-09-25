@@ -60,8 +60,10 @@ class EventLogger:
         node_id: str,
         event: str,
         task_id: str | None = None,
+        details: dict | None = None,
     ) -> None:
-        """Событие без смены состояния (например, задача поставлена в очередь)."""
+        """Событие без смены состояния (например, задача поставлена в очередь).
+        details -- доп. поля, например причина решения агента."""
         record = {
             "timestamp": _now_iso(),
             "simulation_step": simulation_step,
@@ -71,6 +73,8 @@ class EventLogger:
             "event": event,
             "task_id": task_id,
         }
+        if details:
+            record["details"] = details
         self._append(self.events_path, record)
 
     # ------------------------------------------------------------------ #

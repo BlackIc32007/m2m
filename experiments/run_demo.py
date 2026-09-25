@@ -34,6 +34,8 @@ def main():
     parser.add_argument("--fail-duration", type=int, default=5, help="На сколько шагов отказывает Machine_B")
     parser.add_argument("--with-ollama", action="store_true", help="Запрашивать рекомендацию у Ollama на каждом шаге")
     parser.add_argument("--model", default="qwen2.5:3b", help="Название модели Ollama")
+    parser.add_argument("--mode", choices=["pipe", "agent"], default="pipe",
+                        help="pipe -- узлы как просто труба; agent -- узлы сами решают ACCEPT/REFUSE")
     parser.add_argument("--quiet", action="store_true", help="Не печатать визуализацию на каждом шаге")
     args = parser.parse_args()
 
@@ -42,6 +44,7 @@ def main():
         task_arrival_interval=2,
         processing_time=2,
         queue_capacity=10,
+        decision_mode=args.mode,
         logger=logger,
         rng=42,
     )
@@ -52,7 +55,7 @@ def main():
         advisor = NodeAdvisor(client, logger, simulation_step_getter=lambda: model.steps)
 
     print(f"Запуск демо-сценария: {args.steps} шагов, отказ Machine_B на шаге {args.fail_at}"
-          f" длительностью {args.fail_duration} шагов.\n")
+          f" длительностью {args.fail_duration} шагов, режим узлов: {args.mode}.\n")
 
     for step in range(1, args.steps + 1):
         model.step()

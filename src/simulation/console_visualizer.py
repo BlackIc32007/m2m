@@ -30,6 +30,8 @@ def render(model, step_label: str = "") -> str:
         s = node.state_dict()
         label = STATE_LABELS.get(s["state"], s["state"].upper())
         task_part = f" task={s['current_task']}" if s["current_task"] else ""
+        if s.get("decision") == "REFUSE":
+            task_part += "  [REFUSE: не принимает новые задачи]"
         lines.append(
             f"[{s['node']:10s}] {label:8s} queue={s['queue']:<3d} load={s['load']:.2f}{task_part}"
         )

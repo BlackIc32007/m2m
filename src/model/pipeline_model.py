@@ -27,6 +27,7 @@ class PipelineModel(ChainModelMixin, Model):
         valve_safety_threshold: float = 0.5,
         valve_class=ValveAgent,
         valve_kwargs: dict | None = None,  # если задано -- вместо safety_threshold
+        decision_mode: str = "pipe",      # "pipe" -- узлы как труба, "agent" -- узлы решают сами
         logger=None,
         rng=None,
     ):
@@ -48,6 +49,7 @@ class PipelineModel(ChainModelMixin, Model):
         self.output = OutputAgent(self, "Output", logger=logger)
 
         self._link_chain([self.input, self.pump, self.valve, self.tank, self.output])
+        self.set_decision_mode(decision_mode)
 
     # step / snapshot / trigger_failure / force_recover / add_node -- см. ChainModelMixin.
 

@@ -17,6 +17,19 @@ NodeAgent -- узел производственной цепочки (Mesa Agen
     available      -- bool, может ли узел сейчас принять новую задачу
     priority       -- "normal" | "high" (на этом этапе не используется в логике,
                        зарезервировано под следующий этап)
+
+Два режима работы (model.decision_mode, переключается на ходу):
+
+    "pipe"  -- узел как "просто труба": ничего не решает, принимает задачу,
+               если в очереди есть место, обрабатывает и передаёт дальше.
+    "agent" -- узел сам решает, принимать ли новые задачи (ACCEPT/REFUSE),
+               глядя только на свой локальный контекст:
+                 REFUSE, если очередь >= stop_threshold или следующий узел
+                        в отказе;
+                 ACCEPT снова, когда очередь < resume_threshold и следующий
+                        узел работает.
+               Уже принятую очередь узел обрабатывает в любом случае.
+               Каждое решение с причиной пишется в журнал (event=decision_*).
 """
 from mesa import Agent
 
@@ -34,8 +47,12 @@ class NodeAgent(Agent):
         queue_capacity: int = 10,
         downstream=None,
         logger=None,
+        stop_threshold: float = 0.8,
+        resume_threshold: float = 0.5,
     ):
         super().__init__(model)
+        if resume_threshold > stop_threshold:
+            raise ValueError("resume_threshold не может быть выше stop_threshold")
         self.name = name
         self.processing_time = processing_time
         self.queue_capacity = queue_capacity
@@ -47,7 +64,7 @@ class NodeAgent(Agent):
         self.logger = logger
 
         # -------- состояние узла --------
-        self.state = "idle"          # idle | working | failed
+        self.state = "idle"          # idle | working | blocked | failed
         self.current_task = None     # Task | None
         self.queue = []              # list[Task]
         self._remaining_processing = 0  # сколько шагов осталось до завершения текущей задачи
@@ -56,6 +73,12 @@ class NodeAgent(Agent):
 
         # -------- для сценария отказа/восстановления --------
         self._failed_steps_left = 0
+
+        # -------- решение агента (используется только в режиме "agent") --------
+        self.stop_threshold = stop_threshold
+        self.resume_threshold = resume_threshold
+        self.accepting = True           # решение: принимаю ли новые задачи
+        self.last_decision_reason = None
 
     # ------------------------------------------------------------------ #
     # Публичное состояние в виде dict -- удобно для логов, визуализации и
@@ -84,7 +107,43 @@ class NodeAgent(Agent):
             "load": self.load,
             "available": self.available,
             "priority": self.priority,
-        }
+        } | ({} if self.is_endpoint else {
+            "decision": ("ACCEPT" if self.accepting else "REFUSE") if self.decides else "PIPE",
+            "decision_reason": self.last_decision_reason if self.decides else None,
+        })
+
+    # ------------------------------------------------------------------ #
+    # Решение агента: ACCEPT / REFUSE (только в режиме "agent").
+    # ------------------------------------------------------------------ #
+    @property
+    def decides(self) -> bool:
+        """True -- узел сам принимает решения; False -- работает как труба."""
+        return not self.is_endpoint and getattr(self.model, "decision_mode", "pipe") == "agent"
+
+    def _decide(self) -> None:
+        if not self.decides:
+            return
+        downstream_down = bool(self.downstreams) and not any(d.available for d in self.downstreams)
+        if self.accepting:
+            if self.load >= self.stop_threshold:
+                reason = f"очередь {self.load:.0%} >= порога {self.stop_threshold:.0%}"
+            elif downstream_down:
+                reason = "следующий узел в отказе -- нет смысла копить задачи"
+            else:
+                return
+            self.accepting = False
+            self._log_decision("REFUSE", reason)
+        elif self.load < self.resume_threshold and not downstream_down:
+            self.accepting = True
+            self._log_decision("ACCEPT", f"очередь {self.load:.0%} < {self.resume_threshold:.0%}, "
+                                         "следующий узел работает")
+
+    def _log_decision(self, decision: str, reason: str) -> None:
+        self.last_decision_reason = f"{decision}: {reason}"
+        if self.logger:
+            self.logger.log_event(simulation_step=self.model.steps, node_id=self.name,
+                                  event=f"decision_{decision}", details={"reason": reason,
+                                                                        "load": self.load})
 
     # ------------------------------------------------------------------ #
     # Изменение состояния -- централизованно, чтобы каждое изменение сразу
@@ -109,6 +168,9 @@ class NodeAgent(Agent):
     # либо соседним узлом при передаче задачи вниз по цепочке).
     # ------------------------------------------------------------------ #
     def accept_task(self, task) -> bool:
+        self._decide()
+        if self.decides and not self.accepting:
+            return False  # REFUSE -- решение агента; задача остаётся у отправителя
         if len(self.queue) >= self.queue_capacity:
             return False  # очередь переполнена, задача не принята
         self.queue.append(task)
@@ -151,6 +213,8 @@ class NodeAgent(Agent):
     # Основной шаг агента -- вызывается планировщиком модели каждый tick.
     # ------------------------------------------------------------------ #
     def step(self) -> None:
+        self._decide()  # пересмотреть решение, даже если новых задач не приходит
+
         # 1. Если узел в отказе -- просто ждём восстановления (задачи копятся в очереди).
         if self.state == "failed":
             self._failed_steps_left -= 1
