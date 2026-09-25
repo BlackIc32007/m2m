@@ -128,6 +128,27 @@ python experiments/run_demo.py --mode passive
 python experiments/run_demo.py --mode autonomous
 ```
 
+## Эксперименты: решение зоны локальной LLM одним токеном
+
+В модели конфликта решение зоны (автономный режим) может принимать локальная
+LLM: она отвечает ровно одним токеном (M = да / K = нет), а из вероятностей
+токенов считаются уверенность (`confidence`) и здоровье промпта (`mass`).
+Ядро -- `src/llm/token_decision.py`, текст контекста зоны --
+`src/llm/zone_context.py`, политики (правило / LLM) -- `src/model/zone_policies.py`.
+
+Нужна Ollama с поддержкой `logprobs` (проверено на 0.20.7) и модель
+`qwen2.5:1.5b` (контрольная -- `qwen2.5:3b`).
+
+```bash
+python experiments/llm_sanity.py            # этап 0: 6/6 и mass >= 0.9
+python experiments/llm_open_loop.py         # этап 1 и 4: без обратной связи, ~7 мин
+python experiments/llm_closed_loop.py       # этапы 2-3: замкнутый цикл
+python experiments/llm_closed_loop.py --sensitivity   # чувствительность правила
+python experiments/llm_analyze.py           # таблицы (experiments/results/summary.md) и рисунки (docs/figures)
+```
+
+Отчёт с результатами -- `docs/llm_experiment_report.md`.
+
 ## Веб-визуализация (живая модель в браузере)
 
 ```bash

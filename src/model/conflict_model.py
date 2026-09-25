@@ -43,6 +43,7 @@ import math
 import mesa
 
 from src.model.chain_mixin import DECISION_MODES
+from src.model.zone_policies import RulePolicy
 
 
 # ---------------------------------------------------------------- #
@@ -212,6 +213,7 @@ class ZoneAgent(ConflictAgent):
         self.decision = None  # ACCEPT / REFUSE / MODIFY (None -- пассивный режим)
         self.decision_reason = None
         self.decision_counts = {"ACCEPT": 0, "REFUSE": 0, "MODIFY": 0}
+        self.decision_meta = None  # запись решения политики (для журнала экспериментов)
         self.allocated = 0.0
         self.bid = 0.0
         self.unmet_streak = 0
@@ -227,24 +229,16 @@ class ZoneAgent(ConflictAgent):
         self.allocated = 0.0
         self.need = 0.0 if self.is_failed else min(self.queue, self.max_intake)
         self.demand = self.need
-        self.decision = self.decision_reason = None
+        self.decision = self.decision_reason = self.decision_meta = None
         if self.model.decision_mode == "autonomous" and self.need > 1e-9:
             self._decide()
 
     def _decide(self):
-        if self.queue < self.refuse_threshold * self.capacity:
-            self.decision = "REFUSE"
-            self.demand = 0.0
-            self.decision_reason = (f"запас {self.queue:.1f} < {self.refuse_threshold:.0%} ёмкости -- "
-                                    "не срочно, уступаю ресурс другим")
-        elif self.unmet_streak >= self.inflate_after:
-            self.decision = "MODIFY"
-            self.demand = self.need * self.inflate_factor
-            self.decision_reason = (f"недополучаю {self.unmet_streak} шаг(а) подряд -- "
-                                    f"завышаю запрос в {self.inflate_factor:g} раза")
-        else:
-            self.decision = "ACCEPT"
-            self.decision_reason = "запрашиваю реальную потребность"
+        """Решение принимает подключаемая политика (model.zone_policy):
+        по умолчанию RulePolicy (пороги), либо TokenLLMPolicy (локальная LLM)."""
+        d = self.model.zone_policy.decide(self)
+        self.decision, self.demand, self.decision_reason = d.decision, d.demand, d.reason
+        self.decision_meta = d.meta or None
         self.decision_counts[self.decision] += 1
 
     def grant(self, amount):
@@ -264,6 +258,9 @@ class ZoneAgent(ConflictAgent):
         # больше реальной потребности зона забрать не может -- излишек теряется
         served = min(self.allocated, self.need, self.queue)
         self.overdraw = self.allocated - served
+        if self.decision_meta is not None:  # последствия решения -- в его запись
+            self.decision_meta.update(allocated=self.allocated, served=served,
+                                      overdraw=self.overdraw)
         self.allocated = served
         self.queue -= served
         self.total_yield += self.priority * math.sqrt(served)
@@ -334,7 +331,7 @@ SCHEME_INFO = {
 class ConflictModel(mesa.Model):
     def __init__(self, scheme="distributor", policy="proportional",
                  supply=6.0, tank_capacity=12.0, seed=42, zones=None,
-                 decision_mode="passive"):
+                 decision_mode="passive", zone_policy=None):
         try:
             super().__init__(rng=seed)      # Mesa >= 3.4
         except TypeError:
@@ -344,6 +341,7 @@ class ConflictModel(mesa.Model):
         self.scheme = scheme
         self.policy = policy
         self.set_decision_mode(decision_mode)
+        self.zone_policy = zone_policy or RulePolicy()
         self.supply = supply
         self.total_served = 0.0
         self.cum_yield = 0.0

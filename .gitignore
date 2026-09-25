@@ -4,3 +4,5 @@ __pycache__/
 **/logs/*.jsonl
 .DS_Store
 *.pdf
+experiments/results/closed_loop_decisions.csv
+experiments/results/*.log
