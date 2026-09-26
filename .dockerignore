@@ -1,0 +1,9 @@
+.git
+.venv
+**/__pycache__
+**/*.pyc
+logs
+experiments/logs
+experiments/results/closed_loop_decisions.csv
+experiments/results/*.log
+*.pdf

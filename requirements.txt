@@ -1,4 +1,19 @@
-mesa>=3.5
-requests>=2.31
-flask>=3.0          # live_server.py (веб-визуализация)
-solara>=1.40        # experiments/gui.py (SolaraViz), опционально
+# Версии, на которых проект проверен (Python 3.12). Закреплены для
+# воспроизводимости: `pip install -r requirements.txt` даёт ту же среду.
+
+# ядро: модель Mesa и вызовы Ollama
+mesa==3.5.1
+networkx==3.6.1     # Mesa 3.5.1 импортирует его, но не ставит сама
+numpy==2.5.3
+pandas==3.0.5
+requests==2.34.2
+
+# веб-визуализация (live_server.py)
+flask==3.1.3
+
+# эксперименты: статистика и рисунки
+scipy==1.18.1
+matplotlib==3.11.2
+
+# опционально: стандартный SolaraViz (experiments/gui.py)
+solara==1.62.0

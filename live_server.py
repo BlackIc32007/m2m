@@ -17,6 +17,7 @@ live_server.py -- лёгкий локальный сервер для живог
 """
 import importlib
 import inspect
+import os
 import pkgutil
 import sys
 import threading
@@ -338,5 +339,8 @@ def index():
 
 
 if __name__ == "__main__":
+    # LIVE_HOST=0.0.0.0 -- доступ снаружи (в Docker); отладчик Flask тогда
+    # выключен: он позволяет выполнять код из браузера.
+    host = os.environ.get("LIVE_HOST", "127.0.0.1")
     print("Live viewer: http://localhost:5050")
-    app.run(host="127.0.0.1", port=5050, debug=True, use_reloader=False)
+    app.run(host=host, port=5050, debug=host == "127.0.0.1", use_reloader=False)

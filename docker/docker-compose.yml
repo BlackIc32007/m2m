@@ -1,4 +1,10 @@
-version: "3.9"
+# Запуск всего стенда одной командой (из каталога docker/):
+#     docker compose up --build
+# 1) ollama       -- сервер Ollama;
+# 2) ollama-pull  -- один раз скачивает модель в том ollama_data и завершается;
+# 3) app          -- демо-сценарий Mesa (отказ и восстановление Machine_B)
+#                    с рекомендациями LLM; журналы пишутся в ../logs на хосте.
+# Веб-визуализация: docker compose run --service-ports app python live_server.py
 
 services:
   ollama:
@@ -7,6 +13,11 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     # Для GPU (NVIDIA) на Linux-хосте с nvidia-container-toolkit раскомментировать:
     # deploy:
     #   resources:
@@ -16,16 +27,33 @@ services:
     #           count: all
     #           capabilities: [gpu]
 
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: ["ollama", "pull", "qwen2.5:1.5b"]
+
   app:
     build:
       context: ..
       dockerfile: docker/Dockerfile
     depends_on:
-      - ollama
+      ollama-pull:
+        condition: service_completed_successfully
     environment:
       - OLLAMA_HOST=http://ollama:11434
+      - LIVE_HOST=0.0.0.0
+    ports:
+      - "5050:5050"
     volumes:
       - ../logs:/app/logs
+    command: ["python", "experiments/run_demo.py", "--steps", "20", "--fail-at", "4",
+              "--fail-duration", "5", "--with-ollama", "--model", "qwen2.5:1.5b"]
 
 volumes:
   ollama_data:

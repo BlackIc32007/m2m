@@ -4,6 +4,15 @@
 опциональной интеграцией локальной LLM через Ollama. Первый этап задания:
 инфраструктура, а не интеллектуальная агентная логика.
 
+**Отчёт по первому заданию (разделы 1–6, проблемы, предложения, заделы
+второго этапа) — [`docs/report_stage1.md`](docs/report_stage1.md).**
+
+Быстрая проверка всех 11 пунктов демонстрации из задания:
+
+```bash
+python experiments/check_all.py      # ✔/✘ по каждому пункту + версии компонентов
+```
+
 ## Стек
 
 - Python 3.10+
@@ -27,7 +36,8 @@ pip install -r requirements.txt
 | Mesa | 3.5.1 |
 | Flask | 3.1.3 |
 | Solara | 1.62.0 (опционально, для `experiments/gui.py`) |
-| Ollama | 0.20.7 (модель `qwen2.5:3b`) |
+| networkx, pandas, numpy, scipy, matplotlib | см. `requirements.txt` (версии закреплены) |
+| Ollama | 0.20.7 (модели `qwen2.5:1.5b`, `qwen2.5:3b`, `qwen3.5:9b`) |
 | Git | 2.43.0 |
 | Docker | 29.1.3 |
 | ОС | Ubuntu 24.04 |
@@ -66,14 +76,25 @@ project/
 │   ├── simulation/
 │   │   ├── logger.py            # запись событий и вызовов LLM в logs/*.jsonl
 │   │   └── console_visualizer.py# текстовая визуализация состояния
+│   │   ├── pipeline_model.py    # Mesa Model: Pump -> Valve -> Tank (варианты клапана)
+│   │   ├── conflict_model.py    # Mesa Model: источник, зоны, 5 механизмов распределения
+│   │   └── zone_policies.py     # как решает зона: правило / LLM
 │   └── llm/
 │       ├── ollama_client.py     # вызов Ollama, парсинг JSON-ответа
-│       └── node_advisor.py      # Mesa Node State -> Ollama -> Recommendation
+│       ├── node_advisor.py      # Mesa Node State -> Ollama -> Recommendation
+│       ├── token_decision.py    # решение одним токеном с уверенностью
+│       └── zone_context.py      # текст контекста зоны для LLM
 ├── experiments/
-│   └── run_demo.py              # запускаемый демо-сценарий
+│   ├── check_all.py             # проверка 11 пунктов демонстрации
+│   ├── run_demo.py              # демо-сценарий из задания
+│   ├── json_stability.py        # насколько стабильно LLM возвращает JSON
+│   ├── conflict_collision.py, llm_*.py   # эксперименты второго этапа
+│   └── results/                 # таблицы результатов
+├── tests/                       # unittest, 28 тестов
 ├── logs/                        # сюда пишутся events.jsonl и llm_calls.jsonl
-├── docs/
-└── docker/
+├── docs/                        # отчёты, domains.md, figures/
+├── docker/                      # Dockerfile, docker-compose.yml
+├── live_server.py, live_viewer.html   # веб-визуализация
 ```
 
 ## Запуск демо-сценария
@@ -215,6 +236,27 @@ python experiments/compare_valves.py --steps 60
 
 ```bash
 python -m src.llm.ollama_client
+python experiments/json_stability.py   # 27 состояний × 3 модели: формат и смысл ответа, ~3 мин
+```
+
+Адрес сервера берётся из переменной `OLLAMA_HOST` (по умолчанию
+`localhost:11434`).
+
+## Docker
+
+```bash
+cd docker
+docker compose up --build     # ollama + скачивание qwen2.5:1.5b + демо-сценарий с LLM
+```
+
+Журналы появятся в `logs/` на хосте. Веб-визуализация из контейнера:
+`docker compose run --service-ports app python live_server.py` →
+http://localhost:5050. Если Ollama уже запущена на хосте, достаточно
+одного образа:
+
+```bash
+docker build -f docker/Dockerfile -t m2m-app .
+docker run --rm --network host m2m-app python experiments/check_all.py
 ```
 
 ## Логи
@@ -248,9 +290,15 @@ events = pd.read_json("logs/events.jsonl", lines=True)
 - [x] интеграция Mesa → Python → Ollama → Recommendation (только лог, без
       автоматического изменения состояния модели)
 
-## Что НЕ реализовано на этом этапе (сознательно, по заданию)
+## Что сделано сверх первого этапа
 
-Интеллектуальный выбор действий, право LLM менять состояние модели, сложная
-multi-agent архитектура, реальный производственный процесс — всё это
-запланировано на следующий этап (Global Goal → Local Context → Agent →
-ACCEPT/REFUSE/MODIFY).
+В основном стенде (цепочка Input → … → Output) LLM, как требует задание,
+только советует. Как задел для второго этапа (Global Goal → Local Context →
+Agent → ACCEPT/REFUSE/MODIFY) сделаны: автономный режим узлов (правила
+ACCEPT/REFUSE), модель конфликта «зона против системы» и три эксперимента,
+в том числе с LLM, принимающей решения за зону. Режим, где решает LLM, есть
+только в модели конфликта и по умолчанию выключен. Подробно — раздел 7
+отчёта `docs/report_stage1.md`.
+
+Не делалось: собственный семантический язык, реальный производственный
+процесс, Arduino, физический цифровой двойник.

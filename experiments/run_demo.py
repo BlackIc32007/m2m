@@ -36,10 +36,12 @@ def main():
     parser.add_argument("--model", default="qwen2.5:3b", help="Название модели Ollama")
     parser.add_argument("--mode", choices=["passive", "autonomous"], default="passive",
                         help="passive -- узлы только передают поток; autonomous -- узлы сами решают ACCEPT/REFUSE")
+    parser.add_argument("--append-logs", action="store_true",
+                        help="Дописывать в logs/*.jsonl, а не начинать журнал заново")
     parser.add_argument("--quiet", action="store_true", help="Не печатать визуализацию на каждом шаге")
     args = parser.parse_args()
 
-    logger = EventLogger(log_dir="logs")
+    logger = EventLogger(log_dir="logs", reset=not args.append_logs)
     model = FactoryModel(
         task_arrival_interval=2,
         processing_time=2,

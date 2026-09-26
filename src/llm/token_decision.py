@@ -26,11 +26,10 @@ confidence -- уверенность модели ПРИ ДАННОМ КОНТЕ
 политике агента (src/model/zone_policies.py).
 """
 import math
-import os
 
 import requests
 
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST_URL", "http://localhost:11434")
+from src.llm.ollama_client import OLLAMA_HOST
 MODEL = "qwen2.5:1.5b"
 TOP_LOGPROBS = 10
 

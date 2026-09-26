@@ -14,7 +14,18 @@ import time
 
 import requests
 
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+
+
+def _ollama_host() -> str:
+    """Адрес Ollama из переменной OLLAMA_HOST (её же читает сам ollama CLI).
+    Ollama допускает значение без схемы ("0.0.0.0:11434") -- дописываем http://."""
+    host = os.environ.get("OLLAMA_HOST", "").strip() or "localhost:11434"
+    if not host.startswith(("http://", "https://")):
+        host = "http://" + host
+    return host.replace("://0.0.0.0", "://localhost").rstrip("/")
+
+
+OLLAMA_HOST = _ollama_host()
 OLLAMA_URL = f"{OLLAMA_HOST}/api/generate"
 
 
@@ -37,7 +48,8 @@ class OllamaClient:
         try:
             resp = requests.post(
                 OLLAMA_URL,
-                json={"model": self.model, "prompt": prompt, "stream": False, "format": "json"},
+                json={"model": self.model, "prompt": prompt, "stream": False, "format": "json",
+                      "think": False},  # qwen3.5 иначе сначала "думает"
                 timeout=self.timeout,
             )
         except requests.exceptions.RequestException as e:

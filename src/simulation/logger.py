@@ -21,11 +21,16 @@ def _now_iso() -> str:
 
 
 class EventLogger:
-    def __init__(self, log_dir: str = "logs"):
+    def __init__(self, log_dir: str = "logs", reset: bool = False):
+        """reset=True -- начать журналы заново (иначе записи дописываются
+        к прошлым запускам)."""
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.events_path = self.log_dir / "events.jsonl"
         self.llm_path = self.log_dir / "llm_calls.jsonl"
+        if reset:
+            for path in (self.events_path, self.llm_path):
+                path.unlink(missing_ok=True)
 
     def _append(self, path: Path, record: dict) -> None:
         with open(path, "a", encoding="utf-8") as f:
