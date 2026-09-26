@@ -181,6 +181,15 @@ python experiments/llm_analyze.py           # таблицы (experiments/result
 
 Отчёт с результатами -- `docs/llm_experiment_report.md`.
 
+Хитрят ли LLM там, где это выгодно (эталон -- карта стимулов из
+`conflict_collision.py`; модели qwen3.5:9b / qwen2.5:3b / qwen2.5:1.5b):
+
+```bash
+python experiments/llm_incentives.py        # ~25 мин, запросы последовательные
+```
+
+Отчёт -- `docs/llm_incentives_report.md`.
+
 ## Веб-визуализация (живая модель в браузере)
 
 ```bash

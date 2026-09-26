@@ -18,7 +18,10 @@ confidence -- уверенность модели ПРИ ДАННОМ КОНТЕ
     вместо буквы и mass падает (проверено в experiments/llm_sanity.py);
   * буквы ДА/НЕТ настраиваются (yes_letter/no_letter) -- для проверки
     смещения к конкретной букве; поле yes (bool) не зависит от выбора букв;
-  * язык промпта en/ru.
+  * язык промпта en/ru;
+  * think=False: у "думающих" моделей (qwen3.5) иначе первым токеном идёт
+    начало рассуждения ("Thinking"), а не буква; модели без этого режима
+    параметр просто игнорируют.
 Кэширования здесь нет намеренно (как и в исходном модуле) -- кэш живёт в
 политике агента (src/model/zone_policies.py).
 """
@@ -66,7 +69,7 @@ def ask(context: str, question: str, model: str = MODEL, lang: str = "en",
     messages = build_messages(context, question, lang, yes_letter, no_letter)
     resp = requests.post(f"{OLLAMA_HOST}/api/chat", json={
         "model": model, "messages": messages, "stream": False,
-        "logprobs": True, "top_logprobs": TOP_LOGPROBS,
+        "logprobs": True, "top_logprobs": TOP_LOGPROBS, "think": False,
         "options": {"temperature": 0, "num_predict": 1},
     }, timeout=timeout)
     resp.raise_for_status()
