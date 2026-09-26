@@ -457,7 +457,9 @@
       kpi('Дефицит за шаг', c.deficit) +
       kpi('Эффективность vs оптимум', (c.efficiency * 100).toFixed(1) + '%') +
       kpi('Справедливость (Jain)', c.fairness) +
-      kpi(c.tank_level !== null ? 'Уровень резервуара' : 'Потеряно ресурса', c.tank_level !== null ? c.tank_level : c.cum_wasted) +
+      kpi(c.tank_level !== null ? 'Уровень резервуара' : 'Потеряно воды', c.tank_level !== null ? c.tank_level : c.cum_wasted) +
+      (c.tank_level !== null ? kpi('Потеряно воды', c.cum_wasted) : '') +
+      kpi('Потребность сверх ёмкости очередей', c.lost_demand) +
       '</div>';
     panel.innerHTML = h;
   }

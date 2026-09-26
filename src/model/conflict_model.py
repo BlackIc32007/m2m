@@ -71,10 +71,20 @@ def weighted_waterfill(requests, weights, supply):
     return alloc
 
 
-def priority_fill(requests, priorities, supply):
+def priority_fill(requests, priorities, supply, received=None, rng=None):
+    """Обслуживает строго по приоритету. Коллизия зон с РАВНЫМ приоритетом
+    решается в пользу той, что получила меньше всего за всё время (received),
+    а при полном равенстве -- случайно (rng). Не по порядку в списке: иначе
+    первая по списку зона выигрывала бы всегда. И не по "дольше недополучает":
+    под постоянным дефицитом этот счётчик растёт у всех одинаково, и начальная
+    разница закрепляется навсегда."""
+    order = list(range(len(requests)))
+    if rng is not None:
+        rng.shuffle(order)
+    received = received or [0.0] * len(requests)
     alloc = [0.0] * len(requests)
     remaining = float(supply)
-    for i in sorted(range(len(requests)), key=lambda k: -priorities[k]):
+    for i in sorted(order, key=lambda k: (-priorities[k], received[k])):
         give = min(requests[i], remaining)
         alloc[i] = give
         remaining -= give
@@ -135,21 +145,26 @@ class SourceAgent(ConflictAgent):
 class HubAgent(ConflictAgent):
     """Общий узел между источником и зонами: Distributor / Tank / Auctioneer."""
 
-    def __init__(self, model, name, kind, mode, capacity=0.0):
+    def __init__(self, model, name, kind, mode, capacity=0.0, initial_fill=0.5):
         super().__init__(model, name, kind)
         self.mode = mode          # для distributor -- политика
         self.capacity = capacity  # для tank
-        self.level = capacity / 2 if capacity else 0.0
+        self.level = capacity * initial_fill if capacity else 0.0
         self.available = 0.0
+        self.spilled = 0.0        # вода, потерянная на хабе в этот шаг (отказ / перелив бака)
 
     # --- фаза 1: сколько ресурса вообще есть в этот шаг ---
     def prepare(self):
         supply = self.model.source.produced
         if self.kind == "tank":
-            if not self.is_failed:
+            if self.is_failed:
+                self.spilled = supply          # бак не принимает воду -- она теряется
+            else:
+                self.spilled = max(0.0, self.level + supply - self.capacity)  # перелив
                 self.level = min(self.capacity, self.level + supply)
             self.available = 0.0 if self.is_failed else self.level
         else:
+            self.spilled = supply if self.is_failed else 0.0
             self.available = 0.0 if self.is_failed else supply
 
     # --- фаза 2 (только A и C): центральное решение "кому сколько" ---
@@ -161,7 +176,8 @@ class HubAgent(ConflictAgent):
             if self.mode == "equal":
                 alloc = weighted_waterfill(reqs, [1.0] * len(reqs), self.available)
             elif self.mode == "priority":
-                alloc = priority_fill(reqs, prios, self.available)
+                alloc = priority_fill(reqs, prios, self.available,
+                                      received=[z.total_served for z in zones], rng=self.model.random)
             else:  # proportional
                 alloc = weighted_waterfill(reqs, reqs, self.available)
         else:  # auctioneer
@@ -218,9 +234,14 @@ class ZoneAgent(ConflictAgent):
         self.bid = 0.0
         self.unmet_streak = 0
         self.total_yield = 0.0
+        self.total_arrived = 0.0  # сколько потребности пришло всего
+        self.total_served = 0.0   # сколько воды зона реально использовала
+        self.lost_demand = 0.0    # потребность, не поместившаяся в очередь (capacity)
 
     def arrive(self):
         add = max(0.0, self.arrival_rate + self.model.random.choice([-1, 0, 0, 1]))
+        self.total_arrived += add
+        self.lost_demand += max(0.0, self.queue + add - self.capacity)
         self.queue = min(self.capacity, self.queue + add)
 
     def declare(self):
@@ -263,6 +284,7 @@ class ZoneAgent(ConflictAgent):
                                       overdraw=self.overdraw)
         self.allocated = served
         self.queue -= served
+        self.total_served += served
         self.total_yield += self.priority * math.sqrt(served)
         if self.decision == "REFUSE":
             pass  # добровольно уступила -- это не "недополучила"
@@ -296,6 +318,7 @@ class ZoneAgent(ConflictAgent):
             "decision": self.decision,
             "decision_reason": self.decision_reason,
             "total_yield": round(self.total_yield, 2),
+            "lost_demand": round(self.lost_demand, 2),
         })
         if self.bid:
             d["bid"] = round(self.bid, 2)
@@ -337,7 +360,7 @@ SCHEME_INFO = {
 class ConflictModel(mesa.Model):
     def __init__(self, scheme="distributor", policy="proportional",
                  supply=6.0, tank_capacity=12.0, seed=42, zones=None,
-                 decision_mode="passive", zone_policy=None):
+                 decision_mode="passive", zone_policy=None, tank_initial_fill=0.5):
         try:
             super().__init__(rng=seed)      # Mesa >= 3.4
         except TypeError:
@@ -359,7 +382,8 @@ class ConflictModel(mesa.Model):
         if scheme == "distributor":
             self.hub = HubAgent(self, "Distributor", "distributor", policy)
         elif scheme == "shared_tank":
-            self.hub = HubAgent(self, "SharedTank", "tank", "SHARED", tank_capacity)
+            self.hub = HubAgent(self, "SharedTank", "tank", "SHARED", tank_capacity,
+                                initial_fill=tank_initial_fill)
         else:
             self.hub = HubAgent(self, "Auctioneer", "auctioneer", "AUCTION")
         self.zones = [ZoneAgent(self, **z) for z in (zones or DEFAULT_ZONES)]
@@ -382,7 +406,7 @@ class ConflictModel(mesa.Model):
     # --- совместимость с live_server ----------------------------- #
     @property
     def completed_tasks(self):
-        return int(self.total_served)
+        return round(self.total_served)
 
     def set_decision_mode(self, mode):
         if mode not in DECISION_MODES:
@@ -393,7 +417,7 @@ class ConflictModel(mesa.Model):
         for n in self.nodes:
             if n.name == name:
                 return n
-        raise KeyError(f"нет узла '{name}'")
+        raise ValueError(f"нет узла '{name}'")
 
     def trigger_failure(self, node_name, duration):
         # Mesa увеличивает model.steps ДО вызова step(), поэтому +1: ровно duration шагов отказа
@@ -444,11 +468,13 @@ class ConflictModel(mesa.Model):
         self.total_served += allocated
         self.cum_yield += sum(z.priority * math.sqrt(z.allocated) for z in self.zones)
         if self.scheme != "shared_tank":
-            # не выдано никому + выдано сверх потребности (завышенные запросы)
-            self.cum_wasted += max(0.0, self.hub.available - allocated)
+            # всё произведённое, что не использовала ни одна зона: потеря на
+            # отказавшем хабе + не выдано никому + выдано сверх потребности
+            self.cum_wasted += self.source.produced - allocated
         else:
-            # из резервуара забрали больше, чем смогли использовать
-            self.cum_wasted += sum(z.overdraw for z in self.zones)
+            # перелив / отказ бака + забрано из бака сверх потребности
+            # (не забранная вода остаётся в баке и потерей не считается)
+            self.cum_wasted += self.hub.spilled + sum(z.overdraw for z in self.zones)
         self.datacollector.collect(self)                 # 7. метрики
 
     def conflict_metrics(self):
@@ -475,6 +501,7 @@ class ConflictModel(mesa.Model):
             "total_allocated": round(sum(alloc), 2),
             "deficit": round(sum(needs) - sum(alloc), 2),
             "cum_wasted": round(self.cum_wasted, 2),
+            "lost_demand": round(sum(z.lost_demand for z in zones), 2),
             "cum_yield": round(self.cum_yield, 2),
             "cum_optimal": round(self.cum_optimal, 2),
             "efficiency": round(self.efficiency, 3),

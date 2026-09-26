@@ -79,5 +79,7 @@ class ValveAgent(NodeAgent):
 
     def state_dict(self) -> dict:
         d = super().state_dict()
-        d["mode"] = self.mode  # Добавляем режим ACCEPT/MODIFY в вывод
+        # режим ACCEPT/MODIFY -- только когда клапан сам принимает решения;
+        # в пассивном режиме он просто передаёт поток, и "ACCEPT" вводил бы в заблуждение
+        d["mode"] = self.mode if self.decides else None
         return d
