@@ -15,10 +15,17 @@ live_server.py -- лёгкий локальный сервер для живог
 
 Потом открыть в браузере: http://localhost:5050
 """
+import argparse
+import atexit
 import importlib
 import inspect
+import json
 import os
+import subprocess
+import tempfile
+import time
 import pkgutil
+import signal
 import sys
 import threading
 from pathlib import Path
@@ -338,9 +345,91 @@ def index():
     return send_from_directory(Path(__file__).resolve().parent, "live_viewer.html")
 
 
+PORT = 5050
+
+
+def start_ngrok(port: int, password: str | None) -> str:
+    """Поднять туннель ngrok к локальному порту и вернуть публичный URL.
+
+    Токен ngrok берётся из переменной NGROK_AUTHTOKEN, а если её нет -- из
+    конфига ngrok (`ngrok config add-authtoken <токен>`); в репозиторий он не
+    попадает. password -- пароль на вход (логин m2m) через правило
+    basic-auth ngrok; без него страница открыта всем, у кого есть ссылка.
+    """
+    cmd = ["ngrok", "http", str(port), "--log", "stdout", "--log-format", "json"]
+    token = os.environ.get("NGROK_AUTHTOKEN", "").strip()
+    if token:
+        # сам ngrok эту переменную не читает, а в аргументах командной строки
+        # токен был бы виден в списке процессов -- передаём временным конфигом
+        conf = tempfile.NamedTemporaryFile("w", suffix=".yml", delete=False)
+        os.chmod(conf.name, 0o600)
+        conf.write(f'version: "3"\nagent:\n  authtoken: {json.dumps(token)}\n')
+        conf.close()
+        atexit.register(os.unlink, conf.name)
+        cmd += ["--config", conf.name]
+    if password:
+        if len(password) < 8:
+            raise SystemExit("Пароль для ngrok должен быть не короче 8 символов.")
+        policy = {"on_http_request": [{"actions": [
+            {"type": "basic-auth", "config": {"credentials": [f"m2m:{password}"]}}]}]}
+        policy_file = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
+        json.dump(policy, policy_file)
+        policy_file.close()
+        atexit.register(os.unlink, policy_file.name)
+        cmd += ["--traffic-policy-file", policy_file.name]
+
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    except FileNotFoundError:
+        raise SystemExit("ngrok не найден: установите его (https://ngrok.com/download).")
+    atexit.register(proc.terminate)
+
+    # ngrok пишет журнал строками JSON; ждём строку с URL или с ошибкой
+    deadline = time.time() + 20
+    for line in proc.stdout:
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if rec.get("url", "").startswith("https://"):
+            # дальше журнал ngrok не нужен, но его надо вычитывать, иначе
+            # переполненный буфер остановит процесс
+            threading.Thread(target=lambda: [None for _ in proc.stdout], daemon=True).start()
+            return rec["url"]
+        if rec.get("lvl") in ("eror", "crit") or "ERR_NGROK" in line:
+            proc.terminate()
+            raise SystemExit(f"ngrok не запустился: {rec.get('err') or rec.get('msg') or line.strip()}")
+        if time.time() > deadline:
+            break
+    proc.terminate()
+    raise SystemExit("ngrok не вернул адрес туннеля за 20 с.")
+
+
 if __name__ == "__main__":
-    # LIVE_HOST=0.0.0.0 -- доступ снаружи (в Docker); отладчик Flask тогда
-    # выключен: он позволяет выполнять код из браузера.
+    parser = argparse.ArgumentParser(description="Веб-визуализация Mesa-модели")
+    parser.add_argument("--ngrok", action="store_true",
+                        help="открыть доступ с других устройств через туннель ngrok")
+    parser.add_argument("--password", default=os.environ.get("LIVE_PASSWORD"),
+                        help="пароль на вход через ngrok (логин m2m), не короче 8 символов; "
+                             "можно задать переменной LIVE_PASSWORD")
+    args = parser.parse_args()
+
+    # LIVE_HOST=0.0.0.0 -- доступ снаружи (в Docker). Отладчик Flask включён
+    # только для чисто локального запуска: он позволяет выполнять код из
+    # браузера, поэтому через Docker или ngrok он выключен.
     host = os.environ.get("LIVE_HOST", "127.0.0.1")
-    print("Live viewer: http://localhost:5050")
-    app.run(host=host, port=5050, debug=host == "127.0.0.1", use_reloader=False)
+    debug = host == "127.0.0.1" and not args.ngrok
+    print(f"Live viewer: http://localhost:{PORT}")
+    if args.ngrok:
+        # kill / закрытие терминала (SIGTERM, SIGHUP) по умолчанию не вызывают
+        # atexit -- туннель остался бы открытым; превращаем их в обычный выход
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, lambda *_: sys.exit(0))
+        url = start_ngrok(PORT, args.password)
+        print(f"С других устройств: {url}")
+        if args.password:
+            print("Вход: логин m2m и пароль из --password / LIVE_PASSWORD")
+        else:
+            print("Внимание: пароля нет -- управлять моделью может любой, у кого есть ссылка "
+                  "(добавьте --password).")
+    app.run(host=host, port=PORT, debug=debug, use_reloader=False)
