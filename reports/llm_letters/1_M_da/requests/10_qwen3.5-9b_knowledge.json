@@ -1,0 +1,137 @@
+{
+  "request": {
+    "model": "qwen3.5:9b",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You answer yes/no questions with exactly one letter. M means YES. K means NO. Output only M or K."
+      },
+      {
+        "role": "user",
+        "content": "Is fire hot?"
+      },
+      {
+        "role": "assistant",
+        "content": "M"
+      },
+      {
+        "role": "user",
+        "content": "Is 1 greater than 3?"
+      },
+      {
+        "role": "assistant",
+        "content": "K"
+      },
+      {
+        "role": "user",
+        "content": "Do cats have six legs?"
+      }
+    ],
+    "stream": false,
+    "logprobs": true,
+    "top_logprobs": 10,
+    "think": false,
+    "options": {
+      "temperature": 0,
+      "num_predict": 1
+    }
+  },
+  "response": {
+    "model": "qwen3.5:9b",
+    "created_at": "2026-10-06T09:22:22.415169581Z",
+    "message": {
+      "role": "assistant",
+      "content": "K"
+    },
+    "done": true,
+    "done_reason": "length",
+    "logprobs": [
+      {
+        "token": "K",
+        "logprob": -0.0043168626725673676,
+        "bytes": [
+          75
+        ],
+        "top_logprobs": [
+          {
+            "token": "K",
+            "logprob": -0.0043168626725673676,
+            "bytes": [
+              75
+            ]
+          },
+          {
+            "token": "M",
+            "logprob": -5.489321231842041,
+            "bytes": [
+              77
+            ]
+          },
+          {
+            "token": " K",
+            "logprob": -8.891221046447754,
+            "bytes": [
+              32,
+              75
+            ]
+          },
+          {
+            "token": "k",
+            "logprob": -11.772730827331543,
+            "bytes": [
+              107
+            ]
+          },
+          {
+            "token": "A",
+            "logprob": -12.423258781433105,
+            "bytes": [
+              65
+            ]
+          },
+          {
+            "token": "No",
+            "logprob": -12.838173866271973,
+            "bytes": [
+              78,
+              111
+            ]
+          },
+          {
+            "token": "C",
+            "logprob": -12.935540199279785,
+            "bytes": [
+              67
+            ]
+          },
+          {
+            "token": "B",
+            "logprob": -13.173036575317383,
+            "bytes": [
+              66
+            ]
+          },
+          {
+            "token": "F",
+            "logprob": -13.390460014343262,
+            "bytes": [
+              70
+            ]
+          },
+          {
+            "token": "N",
+            "logprob": -13.413615226745605,
+            "bytes": [
+              78
+            ]
+          }
+        ]
+      }
+    ],
+    "total_duration": 328309668,
+    "load_duration": 178403023,
+    "prompt_eval_count": 81,
+    "prompt_eval_duration": 89831286,
+    "eval_count": 1
+  }
+}

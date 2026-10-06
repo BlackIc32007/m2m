@@ -1,0 +1,181 @@
+№,модель,тип,механизм,зона,вопрос,правильно,буква,ответ,P(M),P(K),P(да),уверенность,mass,верно
+1,qwen2.5:1.5b,знание,,,Is the Sun a star?,да,M,да,0.95058,0.049028,0.950953,0.950953,0.999608,да
+2,qwen2.5:1.5b,знание,,,Is Paris the capital of France?,да,M,да,0.98206,0.017666,0.982329,0.982329,0.999726,да
+3,qwen2.5:1.5b,знание,,,Do fish live in water?,да,M,да,0.991718,0.007883,0.992114,0.992114,0.999601,да
+4,qwen2.5:1.5b,знание,,,Is 10 greater than 3?,да,M,да,0.98343,0.014324,0.985644,0.985644,0.997754,да
+5,qwen2.5:1.5b,знание,,,Is ice cold?,да,M,да,0.864686,0.135117,0.864856,0.864856,0.999803,да
+6,qwen2.5:1.5b,знание,,,Does a week have seven days?,да,M,да,0.971205,0.028437,0.971553,0.971553,0.999642,да
+7,qwen2.5:1.5b,знание,,,Is 2 + 2 equal to 4?,да,M,да,0.986021,0.012462,0.987519,0.987519,0.998483,да
+8,qwen2.5:1.5b,знание,,,Do birds have feathers?,да,M,да,0.9897,0.009781,0.990214,0.990214,0.999481,да
+9,qwen2.5:1.5b,знание,,,Is water made of hydrogen and oxygen?,да,M,да,0.974942,0.024298,0.975683,0.975683,0.999241,да
+10,qwen2.5:1.5b,знание,,,Is a square a shape with four sides?,да,M,да,0.968263,0.031375,0.968614,0.968614,0.999638,да
+11,qwen2.5:1.5b,знание,,,Is 1 greater than 5?,нет,K,нет,0.000344,0.999549,0.000344,0.999656,0.999893,да
+12,qwen2.5:1.5b,знание,,,Is the Moon made of cheese?,нет,K,нет,0.01642,0.982644,0.016435,0.983565,0.999064,да
+13,qwen2.5:1.5b,знание,,,Do cats have six legs?,нет,K,нет,0.009603,0.99018,0.009605,0.990395,0.999783,да
+14,qwen2.5:1.5b,знание,,,Is snow hot?,нет,K,нет,0.08484,0.914627,0.084885,0.915115,0.999467,да
+15,qwen2.5:1.5b,знание,,,Is Berlin the capital of Spain?,нет,K,нет,0.000325,0.999551,0.000325,0.999675,0.999876,да
+16,qwen2.5:1.5b,знание,,,Is 3 an even number?,нет,K,нет,0.002795,0.997027,0.002795,0.997205,0.999822,да
+17,qwen2.5:1.5b,знание,,,Can a human breathe underwater without equipment?,нет,K,нет,0.036867,0.962848,0.036877,0.963123,0.999715,да
+18,qwen2.5:1.5b,знание,,,Is the ocean dry?,нет,K,нет,0.015056,0.984708,0.015059,0.984941,0.999764,да
+19,qwen2.5:1.5b,знание,,,Does a triangle have four sides?,нет,K,нет,0.006165,0.993564,0.006167,0.993833,0.99973,да
+20,qwen2.5:1.5b,знание,,,Is 7 less than 2?,нет,K,нет,0.007643,0.992093,0.007645,0.992355,0.999736,да
+21,qwen2.5:1.5b,агент: уступить воду?,арбитр: пропорц.,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.04622,0.95244,0.046282,0.953718,0.998661,
+22,qwen2.5:1.5b,агент: завысить запрос?,арбитр: пропорц.,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.086258,0.9115,0.086452,0.913548,0.997759,
+23,qwen2.5:1.5b,агент: уступить воду?,арбитр: пропорц.,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,K,нет,0.062554,0.936107,0.062637,0.937363,0.998661,
+24,qwen2.5:1.5b,агент: завысить запрос?,арбитр: пропорц.,Zone3,Should Zone3 request more water than its field actually needs this step?,,K,нет,0.079481,0.918888,0.079611,0.920389,0.998369,
+25,qwen2.5:1.5b,агент: уступить воду?,арбитр: пропорц.,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.069667,0.92882,0.069772,0.930228,0.998486,
+26,qwen2.5:1.5b,агент: завысить запрос?,арбитр: пропорц.,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.078201,0.920045,0.078339,0.921661,0.998246,
+27,qwen2.5:1.5b,агент: уступить воду?,арбитр: пропорц.,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.053647,0.945062,0.053716,0.946284,0.998709,
+28,qwen2.5:1.5b,агент: завысить запрос?,арбитр: пропорц.,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.078126,0.919198,0.078336,0.921664,0.997324,
+29,qwen2.5:1.5b,агент: уступить воду?,арбитр: поровну,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.066799,0.932011,0.066879,0.933121,0.99881,
+30,qwen2.5:1.5b,агент: завысить запрос?,арбитр: поровну,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.092958,0.905282,0.093122,0.906878,0.998239,
+31,qwen2.5:1.5b,агент: уступить воду?,арбитр: поровну,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.050309,0.948771,0.050355,0.949645,0.99908,
+32,qwen2.5:1.5b,агент: завысить запрос?,арбитр: поровну,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.085843,0.912887,0.085952,0.914048,0.99873,
+33,qwen2.5:1.5b,агент: уступить воду?,арбитр: поровну,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.066799,0.932011,0.066879,0.933121,0.99881,
+34,qwen2.5:1.5b,агент: завысить запрос?,арбитр: поровну,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.092958,0.905282,0.093122,0.906878,0.998239,
+35,qwen2.5:1.5b,агент: уступить воду?,арбитр: поровну,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,K,нет,0.07267,0.926138,0.072756,0.927244,0.998808,
+36,qwen2.5:1.5b,агент: завысить запрос?,арбитр: поровну,Zone3,Should Zone3 request more water than its field actually needs this step?,,K,нет,0.078759,0.919878,0.078867,0.921133,0.998638,
+37,qwen2.5:1.5b,агент: уступить воду?,арбитр: приоритет,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.048003,0.95091,0.048055,0.951945,0.998913,
+38,qwen2.5:1.5b,агент: завысить запрос?,арбитр: приоритет,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.07822,0.919881,0.078368,0.921632,0.998101,
+39,qwen2.5:1.5b,агент: уступить воду?,арбитр: приоритет,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.063008,0.935827,0.063081,0.936919,0.998835,
+40,qwen2.5:1.5b,агент: завысить запрос?,арбитр: приоритет,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.101406,0.896862,0.101582,0.898418,0.998268,
+41,qwen2.5:1.5b,агент: уступить воду?,арбитр: приоритет,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.057716,0.941081,0.057785,0.942215,0.998797,
+42,qwen2.5:1.5b,агент: завысить запрос?,арбитр: приоритет,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.090293,0.908131,0.090435,0.909565,0.998424,
+43,qwen2.5:1.5b,агент: уступить воду?,арбитр: приоритет,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,K,нет,0.051006,0.948058,0.051054,0.948946,0.999064,
+44,qwen2.5:1.5b,агент: завысить запрос?,арбитр: приоритет,Zone3,Should Zone3 request more water than its field actually needs this step?,,K,нет,0.115272,0.883331,0.115433,0.884567,0.998603,
+45,qwen2.5:1.5b,агент: уступить воду?,общий бак,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.033657,0.965697,0.033679,0.966321,0.999354,
+46,qwen2.5:1.5b,агент: завысить запрос?,общий бак,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.074333,0.924214,0.074441,0.925559,0.998547,
+47,qwen2.5:1.5b,агент: уступить воду?,общий бак,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.053716,0.945477,0.053759,0.946241,0.999193,
+48,qwen2.5:1.5b,агент: завысить запрос?,общий бак,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.062149,0.936565,0.062229,0.937771,0.998714,
+49,qwen2.5:1.5b,агент: уступить воду?,общий бак,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,K,нет,0.042868,0.956222,0.042907,0.957093,0.999089,
+50,qwen2.5:1.5b,агент: завысить запрос?,общий бак,Zone3,Should Zone3 request more water than its field actually needs this step?,,K,нет,0.055653,0.943095,0.055723,0.944277,0.998748,
+51,qwen2.5:1.5b,агент: уступить воду?,общий бак,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.047087,0.952002,0.04713,0.95287,0.999089,
+52,qwen2.5:1.5b,агент: завысить запрос?,общий бак,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.063776,0.934617,0.063879,0.936121,0.998394,
+53,qwen2.5:1.5b,агент: уступить воду?,аукцион,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.040901,0.957923,0.040949,0.959051,0.998824,
+54,qwen2.5:1.5b,агент: завысить запрос?,аукцион,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.079961,0.918351,0.080096,0.919904,0.998312,
+55,qwen2.5:1.5b,агент: уступить воду?,аукцион,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.043452,0.955449,0.043499,0.956501,0.998901,
+56,qwen2.5:1.5b,агент: завысить запрос?,аукцион,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.088139,0.909719,0.088328,0.911672,0.997858,
+57,qwen2.5:1.5b,агент: уступить воду?,аукцион,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.043692,0.955306,0.043736,0.956264,0.998998,
+58,qwen2.5:1.5b,агент: завысить запрос?,аукцион,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.07255,0.925729,0.072675,0.927325,0.998279,
+59,qwen2.5:1.5b,агент: уступить воду?,аукцион,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.052404,0.946242,0.052475,0.947525,0.998646,
+60,qwen2.5:1.5b,агент: завысить запрос?,аукцион,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.111866,0.885753,0.112133,0.887867,0.997619,
+1,qwen2.5:3b,знание,,,Is the Sun a star?,да,M,да,1.0,0.0,1.0,1.0,1.0,да
+2,qwen2.5:3b,знание,,,Is Paris the capital of France?,да,M,да,1.0,0.0,1.0,1.0,1.0,да
+3,qwen2.5:3b,знание,,,Do fish live in water?,да,M,да,1.0,0.0,1.0,1.0,1.0,да
+4,qwen2.5:3b,знание,,,Is 10 greater than 3?,да,M,да,1.0,0.0,1.0,1.0,1.0,да
+5,qwen2.5:3b,знание,,,Is ice cold?,да,M,да,1.0,0.0,1.0,1.0,1.0,да
+6,qwen2.5:3b,знание,,,Does a week have seven days?,да,M,да,1.0,0.0,1.0,1.0,1.0,да
+7,qwen2.5:3b,знание,,,Is 2 + 2 equal to 4?,да,K,нет,0.0,1.0,0.0,1.0,1.0,нет
+8,qwen2.5:3b,знание,,,Do birds have feathers?,да,M,да,1.0,0.0,1.0,1.0,1.0,да
+9,qwen2.5:3b,знание,,,Is water made of hydrogen and oxygen?,да,K,нет,0.133307,0.866693,0.133307,0.866693,1.0,нет
+10,qwen2.5:3b,знание,,,Is a square a shape with four sides?,да,M,да,1.0,0.0,1.0,1.0,1.0,да
+11,qwen2.5:3b,знание,,,Is 1 greater than 5?,нет,K,нет,0.0,1.0,0.0,1.0,1.0,да
+12,qwen2.5:3b,знание,,,Is the Moon made of cheese?,нет,K,нет,0.0,1.0,0.0,1.0,1.0,да
+13,qwen2.5:3b,знание,,,Do cats have six legs?,нет,K,нет,0,1.0,0.0,1.0,1.0,да
+14,qwen2.5:3b,знание,,,Is snow hot?,нет,K,нет,0.0,1.0,0.0,1.0,1.0,да
+15,qwen2.5:3b,знание,,,Is Berlin the capital of Spain?,нет,K,нет,0,1.0,0.0,1.0,1.0,да
+16,qwen2.5:3b,знание,,,Is 3 an even number?,нет,K,нет,0.0,1.0,0.0,1.0,1.0,да
+17,qwen2.5:3b,знание,,,Can a human breathe underwater without equipment?,нет,K,нет,0,1.0,0.0,1.0,1.0,да
+18,qwen2.5:3b,знание,,,Is the ocean dry?,нет,K,нет,0,1.0,0.0,1.0,1.0,да
+19,qwen2.5:3b,знание,,,Does a triangle have four sides?,нет,K,нет,0.0,1.0,0.0,1.0,1.0,да
+20,qwen2.5:3b,знание,,,Is 7 less than 2?,нет,K,нет,0.0,1.0,0.0,1.0,1.0,да
+21,qwen2.5:3b,агент: уступить воду?,арбитр: пропорц.,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,6e-06,0.999994,6e-06,0.999994,1.0,
+22,qwen2.5:3b,агент: завысить запрос?,арбитр: пропорц.,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+23,qwen2.5:3b,агент: уступить воду?,арбитр: пропорц.,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,K,нет,0.000163,0.999837,0.000163,0.999837,1.0,
+24,qwen2.5:3b,агент: завысить запрос?,арбитр: пропорц.,Zone3,Should Zone3 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+25,qwen2.5:3b,агент: уступить воду?,арбитр: пропорц.,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,4e-06,0.999996,4e-06,0.999996,1.0,
+26,qwen2.5:3b,агент: завысить запрос?,арбитр: пропорц.,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+27,qwen2.5:3b,агент: уступить воду?,арбитр: пропорц.,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,3e-06,0.999997,3e-06,0.999997,1.0,
+28,qwen2.5:3b,агент: завысить запрос?,арбитр: пропорц.,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+29,qwen2.5:3b,агент: уступить воду?,арбитр: поровну,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.003521,0.996479,0.003521,0.996479,1.0,
+30,qwen2.5:3b,агент: завысить запрос?,арбитр: поровну,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+31,qwen2.5:3b,агент: уступить воду?,арбитр: поровну,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.002832,0.997168,0.002832,0.997168,1.0,
+32,qwen2.5:3b,агент: завысить запрос?,арбитр: поровну,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+33,qwen2.5:3b,агент: уступить воду?,арбитр: поровну,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.003521,0.996479,0.003521,0.996479,1.0,
+34,qwen2.5:3b,агент: завысить запрос?,арбитр: поровну,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+35,qwen2.5:3b,агент: уступить воду?,арбитр: поровну,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,K,нет,0.008157,0.991843,0.008157,0.991843,1.0,
+36,qwen2.5:3b,агент: завысить запрос?,арбитр: поровну,Zone3,Should Zone3 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+37,qwen2.5:3b,агент: уступить воду?,арбитр: приоритет,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.000369,0.999631,0.000369,0.999631,1.0,
+38,qwen2.5:3b,агент: завысить запрос?,арбитр: приоритет,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+39,qwen2.5:3b,агент: уступить воду?,арбитр: приоритет,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,7.4e-05,0.999926,7.4e-05,0.999926,1.0,
+40,qwen2.5:3b,агент: завысить запрос?,арбитр: приоритет,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+41,qwen2.5:3b,агент: уступить воду?,арбитр: приоритет,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,7.4e-05,0.999926,7.4e-05,0.999926,1.0,
+42,qwen2.5:3b,агент: завысить запрос?,арбитр: приоритет,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+43,qwen2.5:3b,агент: уступить воду?,арбитр: приоритет,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,K,нет,0.014745,0.985255,0.014745,0.985255,1.0,
+44,qwen2.5:3b,агент: завысить запрос?,арбитр: приоритет,Zone3,Should Zone3 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+45,qwen2.5:3b,агент: уступить воду?,общий бак,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,2e-06,0.999998,2e-06,0.999998,1.0,
+46,qwen2.5:3b,агент: завысить запрос?,общий бак,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+47,qwen2.5:3b,агент: уступить воду?,общий бак,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,3.3e-05,0.999967,3.3e-05,0.999967,1.0,
+48,qwen2.5:3b,агент: завысить запрос?,общий бак,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+49,qwen2.5:3b,агент: уступить воду?,общий бак,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,K,нет,1.8e-05,0.999982,1.8e-05,0.999982,1.0,
+50,qwen2.5:3b,агент: завысить запрос?,общий бак,Zone3,Should Zone3 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+51,qwen2.5:3b,агент: уступить воду?,общий бак,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.000161,0.999839,0.000161,0.999839,1.0,
+52,qwen2.5:3b,агент: завысить запрос?,общий бак,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+53,qwen2.5:3b,агент: уступить воду?,аукцион,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.001225,0.998775,0.001225,0.998775,1.0,
+54,qwen2.5:3b,агент: завысить запрос?,аукцион,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+55,qwen2.5:3b,агент: уступить воду?,аукцион,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.003369,0.996631,0.003369,0.996631,1.0,
+56,qwen2.5:3b,агент: завысить запрос?,аукцион,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+57,qwen2.5:3b,агент: уступить воду?,аукцион,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.00197,0.99803,0.00197,0.99803,1.0,
+58,qwen2.5:3b,агент: завысить запрос?,аукцион,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+59,qwen2.5:3b,агент: уступить воду?,аукцион,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.001025,0.998975,0.001025,0.998975,1.0,
+60,qwen2.5:3b,агент: завысить запрос?,аукцион,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.0,1.0,0.0,1.0,1.0,
+1,qwen3.5:9b,знание,,,Is the Sun a star?,да,M,да,0.999199,0.000754,0.999246,0.999246,0.999954,да
+2,qwen3.5:9b,знание,,,Is Paris the capital of France?,да,M,да,0.999575,0.000382,0.999618,0.999618,0.999957,да
+3,qwen3.5:9b,знание,,,Do fish live in water?,да,M,да,0.99701,0.002896,0.997103,0.997103,0.999906,да
+4,qwen3.5:9b,знание,,,Is 10 greater than 3?,да,M,да,0.998607,0.001328,0.998672,0.998672,0.999935,да
+5,qwen3.5:9b,знание,,,Is ice cold?,да,M,да,0.989892,0.00992,0.990078,0.990078,0.999812,да
+6,qwen3.5:9b,знание,,,Does a week have seven days?,да,M,да,0.998076,0.001823,0.998176,0.998176,0.999899,да
+7,qwen3.5:9b,знание,,,Is 2 + 2 equal to 4?,да,M,да,0.999345,0.000596,0.999404,0.999404,0.999941,да
+8,qwen3.5:9b,знание,,,Do birds have feathers?,да,M,да,0.999018,0.000899,0.999101,0.999101,0.999917,да
+9,qwen3.5:9b,знание,,,Is water made of hydrogen and oxygen?,да,M,да,0.998834,0.001116,0.998884,0.998884,0.99995,да
+10,qwen3.5:9b,знание,,,Is a square a shape with four sides?,да,M,да,0.997921,0.002016,0.997984,0.997984,0.999937,да
+11,qwen3.5:9b,знание,,,Is 1 greater than 5?,нет,K,нет,0.000702,0.99925,0.000702,0.999298,0.999952,да
+12,qwen3.5:9b,знание,,,Is the Moon made of cheese?,нет,K,нет,0.008002,0.991937,0.008002,0.991998,0.999939,да
+13,qwen3.5:9b,знание,,,Do cats have six legs?,нет,K,нет,0.004131,0.99583,0.004131,0.995869,0.999961,да
+14,qwen3.5:9b,знание,,,Is snow hot?,нет,K,нет,0.015072,0.984822,0.015074,0.984926,0.999895,да
+15,qwen3.5:9b,знание,,,Is Berlin the capital of Spain?,нет,K,нет,0.004686,0.995273,0.004687,0.995313,0.999959,да
+16,qwen3.5:9b,знание,,,Is 3 an even number?,нет,K,нет,0.001972,0.997978,0.001972,0.998028,0.99995,да
+17,qwen3.5:9b,знание,,,Can a human breathe underwater without equipment?,нет,K,нет,0.004091,0.995808,0.004091,0.995909,0.999899,да
+18,qwen3.5:9b,знание,,,Is the ocean dry?,нет,K,нет,0.009287,0.990671,0.009287,0.990713,0.999958,да
+19,qwen3.5:9b,знание,,,Does a triangle have four sides?,нет,K,нет,0.000696,0.999273,0.000696,0.999304,0.999969,да
+20,qwen3.5:9b,знание,,,Is 7 less than 2?,нет,K,нет,0.001591,0.998364,0.001591,0.998409,0.999955,да
+21,qwen3.5:9b,агент: уступить воду?,арбитр: пропорц.,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.476206,0.522995,0.476587,0.523413,0.999201,
+22,qwen3.5:9b,агент: завысить запрос?,арбитр: пропорц.,Zone1,Should Zone1 request more water than its field actually needs this step?,,M,да,0.748525,0.250718,0.749092,0.749092,0.999243,
+23,qwen3.5:9b,агент: уступить воду?,арбитр: пропорц.,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,M,да,0.614746,0.384512,0.615203,0.615203,0.999258,
+24,qwen3.5:9b,агент: завысить запрос?,арбитр: пропорц.,Zone3,Should Zone3 request more water than its field actually needs this step?,,M,да,0.82514,0.174108,0.825761,0.825761,0.999247,
+25,qwen3.5:9b,агент: уступить воду?,арбитр: пропорц.,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.402837,0.596375,0.403155,0.596845,0.999212,
+26,qwen3.5:9b,агент: завысить запрос?,арбитр: пропорц.,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.430581,0.568639,0.430917,0.569083,0.99922,
+27,qwen3.5:9b,агент: уступить воду?,арбитр: пропорц.,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.476206,0.522995,0.476587,0.523413,0.999201,
+28,qwen3.5:9b,агент: завысить запрос?,арбитр: пропорц.,Zone1,Should Zone1 request more water than its field actually needs this step?,,M,да,0.748525,0.250718,0.749092,0.749092,0.999243,
+29,qwen3.5:9b,агент: уступить воду?,арбитр: поровну,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,M,да,0.632994,0.36646,0.63334,0.63334,0.999454,
+30,qwen3.5:9b,агент: завысить запрос?,арбитр: поровну,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.198814,0.800501,0.198951,0.801049,0.999315,
+31,qwen3.5:9b,агент: уступить воду?,арбитр: поровну,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,M,да,0.533536,0.465589,0.534003,0.534003,0.999125,
+32,qwen3.5:9b,агент: завысить запрос?,арбитр: поровну,Zone1,Should Zone1 request more water than its field actually needs this step?,,M,да,0.73652,0.262818,0.737008,0.737008,0.999338,
+33,qwen3.5:9b,агент: уступить воду?,арбитр: поровну,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,M,да,0.632994,0.36646,0.63334,0.63334,0.999454,
+34,qwen3.5:9b,агент: завысить запрос?,арбитр: поровну,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.198814,0.800501,0.198951,0.801049,0.999315,
+35,qwen3.5:9b,агент: уступить воду?,арбитр: поровну,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,M,да,0.686888,0.312446,0.687346,0.687346,0.999334,
+36,qwen3.5:9b,агент: завысить запрос?,арбитр: поровну,Zone3,Should Zone3 request more water than its field actually needs this step?,,M,да,0.592485,0.406518,0.593077,0.593077,0.999003,
+37,qwen3.5:9b,агент: уступить воду?,арбитр: приоритет,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.291438,0.707729,0.291681,0.708319,0.999167,
+38,qwen3.5:9b,агент: завысить запрос?,арбитр: приоритет,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.179594,0.81987,0.17969,0.82031,0.999464,
+39,qwen3.5:9b,агент: уступить воду?,арбитр: приоритет,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.30082,0.698523,0.301018,0.698982,0.999343,
+40,qwen3.5:9b,агент: завысить запрос?,арбитр: приоритет,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.145082,0.854182,0.145189,0.854811,0.999263,
+41,qwen3.5:9b,агент: уступить воду?,арбитр: приоритет,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.282867,0.716613,0.283014,0.716986,0.999479,
+42,qwen3.5:9b,агент: завысить запрос?,арбитр: приоритет,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.222304,0.777004,0.222458,0.777542,0.999308,
+43,qwen3.5:9b,агент: уступить воду?,арбитр: приоритет,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,M,да,0.568629,0.430574,0.569083,0.569083,0.999204,
+44,qwen3.5:9b,агент: завысить запрос?,арбитр: приоритет,Zone3,Should Zone3 request more water than its field actually needs this step?,,K,нет,0.263321,0.736008,0.263498,0.736502,0.999329,
+45,qwen3.5:9b,агент: уступить воду?,общий бак,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.26625,0.733236,0.266387,0.733613,0.999486,
+46,qwen3.5:9b,агент: завысить запрос?,общий бак,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.064817,0.934809,0.064842,0.935158,0.999626,
+47,qwen3.5:9b,агент: уступить воду?,общий бак,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.430455,0.569131,0.430633,0.569367,0.999586,
+48,qwen3.5:9b,агент: завысить запрос?,общий бак,Zone2,Should Zone2 request more water than its field actually needs this step?,,K,нет,0.074583,0.924927,0.074619,0.925381,0.99951,
+49,qwen3.5:9b,агент: уступить воду?,общий бак,Zone3,Should Zone3 skip requesting water this step and leave it to the other zones?,,K,нет,0.437554,0.56194,0.437775,0.562225,0.999494,
+50,qwen3.5:9b,агент: завысить запрос?,общий бак,Zone3,Should Zone3 request more water than its field actually needs this step?,,K,нет,0.136944,0.862549,0.137013,0.862987,0.999493,
+51,qwen3.5:9b,агент: уступить воду?,общий бак,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.480929,0.518446,0.48123,0.51877,0.999375,
+52,qwen3.5:9b,агент: завысить запрос?,общий бак,Zone1,Should Zone1 request more water than its field actually needs this step?,,K,нет,0.073831,0.925634,0.073871,0.926129,0.999465,
+53,qwen3.5:9b,агент: уступить воду?,аукцион,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.328171,0.671122,0.328403,0.671597,0.999292,
+54,qwen3.5:9b,агент: завысить запрос?,аукцион,Zone2,Should Zone2 request more water than its field actually needs this step?,,M,да,0.688489,0.310598,0.689118,0.689118,0.999087,
+55,qwen3.5:9b,агент: уступить воду?,аукцион,Zone2,Should Zone2 skip requesting water this step and leave it to the other zones?,,K,нет,0.28282,0.716537,0.283002,0.716998,0.999357,
+56,qwen3.5:9b,агент: завысить запрос?,аукцион,Zone2,Should Zone2 request more water than its field actually needs this step?,,M,да,0.592484,0.40673,0.59295,0.59295,0.999214,
+57,qwen3.5:9b,агент: уступить воду?,аукцион,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.230947,0.768505,0.231074,0.768926,0.999452,
+58,qwen3.5:9b,агент: завысить запрос?,аукцион,Zone1,Should Zone1 request more water than its field actually needs this step?,,M,да,0.706869,0.292295,0.707461,0.707461,0.999163,
+59,qwen3.5:9b,агент: уступить воду?,аукцион,Zone1,Should Zone1 skip requesting water this step and leave it to the other zones?,,K,нет,0.226086,0.773359,0.226212,0.773788,0.999446,
+60,qwen3.5:9b,агент: завысить запрос?,аукцион,Zone1,Should Zone1 request more water than its field actually needs this step?,,M,да,0.760677,0.238597,0.76123,0.76123,0.999274,

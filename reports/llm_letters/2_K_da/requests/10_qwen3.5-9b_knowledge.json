@@ -1,0 +1,146 @@
+{
+  "request": {
+    "model": "qwen3.5:9b",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You answer yes/no questions with exactly one letter. K means YES. M means NO. Output only K or M."
+      },
+      {
+        "role": "user",
+        "content": "Is fire hot?"
+      },
+      {
+        "role": "assistant",
+        "content": "K"
+      },
+      {
+        "role": "user",
+        "content": "Is 1 greater than 3?"
+      },
+      {
+        "role": "assistant",
+        "content": "M"
+      },
+      {
+        "role": "user",
+        "content": "Do cats have six legs?"
+      }
+    ],
+    "stream": false,
+    "logprobs": true,
+    "top_logprobs": 10,
+    "think": false,
+    "options": {
+      "temperature": 0,
+      "num_predict": 1
+    }
+  },
+  "response": {
+    "model": "qwen3.5:9b",
+    "created_at": "2026-10-06T09:25:37.881905615Z",
+    "message": {
+      "role": "assistant",
+      "content": "M"
+    },
+    "done": true,
+    "done_reason": "length",
+    "logprobs": [
+      {
+        "token": "M",
+        "logprob": -0.002837597159668803,
+        "bytes": [
+          77
+        ],
+        "top_logprobs": [
+          {
+            "token": "M",
+            "logprob": -0.002837597159668803,
+            "bytes": [
+              77
+            ]
+          },
+          {
+            "token": "K",
+            "logprob": -5.932013988494873,
+            "bytes": [
+              75
+            ]
+          },
+          {
+            "token": " M",
+            "logprob": -9.09936237335205,
+            "bytes": [
+              32,
+              77
+            ]
+          },
+          {
+            "token": "No",
+            "logprob": -11.730594635009766,
+            "bytes": [
+              78,
+              111
+            ]
+          },
+          {
+            "token": "m",
+            "logprob": -12.029990196228027,
+            "bytes": [
+              109
+            ]
+          },
+          {
+            "token": "The",
+            "logprob": -12.034745216369629,
+            "bytes": [
+              84,
+              104,
+              101
+            ]
+          },
+          {
+            "token": "A",
+            "logprob": -12.450757026672363,
+            "bytes": [
+              65
+            ]
+          },
+          {
+            "token": "<think>",
+            "logprob": -12.717728614807129,
+            "bytes": [
+              60,
+              116,
+              104,
+              105,
+              110,
+              107,
+              62
+            ]
+          },
+          {
+            "token": "М",
+            "logprob": -12.861709594726562,
+            "bytes": [
+              208,
+              156
+            ]
+          },
+          {
+            "token": "C",
+            "logprob": -13.116490364074707,
+            "bytes": [
+              67
+            ]
+          }
+        ]
+      }
+    ],
+    "total_duration": 330609379,
+    "load_duration": 182154688,
+    "prompt_eval_count": 81,
+    "prompt_eval_duration": 87630884,
+    "eval_count": 1
+  }
+}
