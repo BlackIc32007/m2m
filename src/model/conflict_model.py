@@ -426,9 +426,37 @@ class ConflictModel(mesa.Model):
     def force_recover(self, node_name):
         self._find(node_name).failed_until = 0
 
-    def add_node(self, *args, **kwargs):
-        raise ValueError("В конфликтных моделях добавление узлов пока не поддерживается "
-                         "-- переключитесь на pipeline/factory.")
+    def add_zone(self, name, **params):
+        """Добавить зону на ходу: она подключается к хабу и с ближайшего шага
+        участвует в распределении (params -- аргументы ZoneAgent)."""
+        name = (name or "").strip()
+        if not name:
+            raise ValueError("укажите имя зоны")
+        if any(n.name == name for n in self.nodes):
+            raise ValueError(f"узел '{name}' уже есть")
+        zone = ZoneAgent(self, name, **params)
+        self.zones.append(zone)
+        self.hub.downstreams.append(zone)
+        self.nodes.append(zone)
+        return zone
+
+    def add_node(self, node_class=None, name=None, insert_after=None, extra_kwargs=None, mode=None):
+        # интерфейс цепочек (live_server): в модели конфликта добавляются только зоны
+        return self.add_zone(name, **(extra_kwargs or {}))
+
+    def remove_node(self, name):
+        """Удалить зону (источник и хаб удалять нельзя; хотя бы одна зона
+        должна остаться). Её запас потребности уходит вместе с ней."""
+        node = self._find(name)
+        if not isinstance(node, ZoneAgent):
+            raise ValueError(f"{name} -- не зона; удалять можно только зоны")
+        if len(self.zones) == 1:
+            raise ValueError("должна остаться хотя бы одна зона")
+        self.zones.remove(node)
+        self.hub.downstreams.remove(node)
+        self.nodes.remove(node)
+        node.remove()  # снять с регистрации в Mesa: agents_by_type больше её не вызывает
+        return 0
 
     # --- метрики ------------------------------------------------- #
     @property

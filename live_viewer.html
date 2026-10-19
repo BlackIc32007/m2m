@@ -3,15 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live Model Viewer</title>
+<title>M2M Sandbox</title>
+<link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0f14; --bg-grid: #121a21; --panel: #101820; --panel-border: #202b34;
+    --bg: #0a0f14; --bg-grid: #121a21; --panel: #101820; --panel-2: #0c141a; --panel-border: #202b34;
     --text: #dde6ec; --text-dim: #7c8a97; --text-faint: #4b5964;
     --cyan: #52d7e8; --amber: #f0a83c; --red: #ef5b5b; --green: #3fd992; --grey: #4b5964;
+    --side-w: 320px;
     font-family: 'Inter', sans-serif;
   }
   * { box-sizing: border-box; }
@@ -20,89 +22,114 @@
   svg#canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   .grid-dot { fill: var(--bg-grid); }
 
-  #toolbar {
-    position: absolute; top: 16px; left: 16px; z-index: 10; display: flex; gap: 8px; align-items: center;
-    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 3px; padding: 8px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.45); flex-wrap: wrap;
-  }
-  .sep { width: 1px; height: 22px; background: var(--panel-border); }
+  .card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 4px; box-shadow: 0 8px 30px rgba(0,0,0,0.45); }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+
+  /* ---------- левая панель ---------- */
+  #side { position: absolute; top: 12px; left: 12px; bottom: 12px; width: var(--side-w); z-index: 10;
+          display: flex; flex-direction: column; overflow: hidden; }
+  #side.collapsed { width: auto; bottom: auto; }
+  #side.collapsed .side-body { display: none; }
+  .side-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--panel-border); }
+  .side-head .brand { font-weight: 700; font-size: 14px; letter-spacing: .02em; }
+  .side-head .stat { margin-left: auto; font-size: 11.5px; color: var(--text-dim); white-space: nowrap; }
+  .side-head .stat b { color: var(--text); font-weight: 500; }
+  #side.collapsed .side-head .stat { display: none; }
+  #side:not(.collapsed) #btn-play-mini, #side:not(.collapsed) #btn-step-mini { display: none; }
+  .side-body { overflow-y: auto; padding: 4px 12px 12px; flex: 1; }
+  details.sec { border-bottom: 1px solid var(--panel-border); padding: 8px 0; }
+  details.sec:last-child { border-bottom: none; }
+  details.sec > summary { cursor: pointer; list-style: none; font-size: 11px; font-weight: 600; letter-spacing: .08em;
+                          text-transform: uppercase; color: var(--text-dim); padding: 4px 0; display: flex; align-items: center; gap: 6px; }
+  details.sec > summary::before { content: '▸'; font-size: 10px; transition: transform .15s; }
+  details.sec[open] > summary::before { transform: rotate(90deg); }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  .sec-body { padding-top: 6px; }
+  .hint { font-size: 11px; color: var(--text-faint); line-height: 1.45; margin: 6px 0 0; }
+
   button.btn, select.btn {
-    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+    font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 500;
     background: transparent; color: var(--text); border: 1px solid var(--panel-border);
-    border-radius: 3px; padding: 7px 12px; cursor: pointer;
+    border-radius: 3px; padding: 6px 10px; cursor: pointer;
   }
   button.btn:hover { background: rgba(255,255,255,0.06); }
   button.btn.primary { background: var(--cyan); color: #06171b; border-color: var(--cyan); font-weight: 600; }
+  button.btn.primary:hover { background: #7be3ef; }
   button.btn.warn:hover { border-color: var(--amber); color: var(--amber); }
+  button.btn.danger { color: #f19a9a; }
   button.btn.danger:hover { border-color: var(--red); color: var(--red); }
   button.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  button.icon { padding: 4px 8px; }
+  .row-btns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  select.full, .full { width: 100%; }
 
-  #status {
-    position: absolute; top: 16px; right: 16px; z-index: 10; background: var(--panel);
-    border: 1px solid var(--panel-border); border-radius: 3px; padding: 10px 14px;
-    font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-dim);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.45);
+  .field { margin-bottom: 8px; }
+  .field label { display: block; font-size: 11px; color: var(--text-dim); margin-bottom: 3px; line-height: 1.3; }
+  .field input, .field select {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--panel-border);
+    color: var(--text); border-radius: 3px; padding: 5px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;
   }
-  #status .conn-ok { color: var(--green); }
-  #status .conn-bad { color: var(--red); }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--cyan); }
+  .field input.changed, .field select.changed { border-color: var(--amber); }
+  .field-inline { display: flex; align-items: center; gap: 6px; }
+  .field-inline input { width: 64px; }
+  .err { color: var(--red); font-size: 11.5px; margin-top: 6px; display: none; }
 
-  #inspector {
-    position: absolute; bottom: 16px; left: 16px; z-index: 10; width: 300px; max-height: calc(100vh - 140px); overflow-y: auto;
-    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 3px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.45); padding: 14px 16px; display: none;
-  }
-  #inspector .title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
-  #inspector .sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); margin-bottom: 12px; }
-  #inspector .row { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 6px; }
-  #inspector .row .k { color: var(--text-dim); }
-  #inspector .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  /* графики */
+  .chart { margin-bottom: 10px; }
+  .chart .ch-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); margin-bottom: 2px; }
+  .chart .ch-head .v { font-family: 'IBM Plex Mono', monospace; color: var(--text); }
+  .chart svg { width: 100%; height: 46px; display: block; background: var(--panel-2); border-radius: 3px; }
 
-  #addnode-panel {
-    position: absolute; bottom: 16px; left: 16px; z-index: 10; width: 300px;
-    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 3px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.45); padding: 14px 16px; display: none;
-  }
-  #addnode-panel .title { font-weight: 600; font-size: 14px; margin-bottom: 10px; }
-  #addnode-panel .field { margin-bottom: 10px; }
-  #addnode-panel .field label {
-    display: block; font-family: 'IBM Plex Mono', monospace; font-size: 11px;
-    color: var(--text-dim); margin-bottom: 4px;
-  }
-  #addnode-panel .field input, #addnode-panel .field select {
-    width: 100%; background: #0c141a; border: 1px solid var(--panel-border);
-    color: var(--text); border-radius: 3px; padding: 6px 8px;
-    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
-  }
-  #addnode-panel .actions { display: flex; gap: 8px; margin-top: 12px; }
+  /* ---------- правая колонка ---------- */
+  #right { position: absolute; top: 12px; right: 12px; bottom: 12px; width: 330px; z-index: 10;
+           display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+  #right > .card { pointer-events: auto; overflow-y: auto; }
+  #inspector { display: none; padding: 12px 14px; flex-shrink: 1; min-height: 0; }
+  #inspector .title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  #inspector .title .x { margin-left: auto; }
+  #inspector .sub { font-size: 11px; color: var(--text-dim); margin: 2px 0 10px; }
+  #inspector h4 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); margin: 12px 0 6px; }
+  .kv { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; gap: 8px; }
+  .kv .k { color: var(--text-dim); }
+  .kv .v { font-family: 'IBM Plex Mono', monospace; text-align: right; word-break: break-word; }
 
+  #conflict-panel { display: none; padding: 12px 14px; font-size: 12.5px; flex-shrink: 1; min-height: 0; }
+  #conflict-panel .title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  #conflict-panel .mech { color: var(--text-dim); font-size: 11.5px; margin-bottom: 8px; line-height: 1.4; }
+  #conflict-panel .goal { font-size: 11.5px; margin-bottom: 3px; }
+  #conflict-panel .goal b { color: var(--amber); font-weight: 600; }
+  #conflict-panel .goal.g b { color: var(--cyan); }
+  #conflict-panel .zrow { margin-top: 8px; cursor: pointer; }
+  #conflict-panel .zhead { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); margin-bottom: 3px; gap: 6px; }
+  #conflict-panel .bar { position: relative; height: 9px; background: #1c262f; border-radius: 2px; overflow: hidden; }
+  #conflict-panel .bar .dem { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(239,91,91,0.35); }
+  #conflict-panel .bar .alc { position: absolute; left: 0; top: 0; bottom: 0; background: var(--cyan); }
+  #conflict-panel .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--panel-border); }
+  #conflict-panel .kpi .k { color: var(--text-dim); font-size: 11px; }
+  #conflict-panel .kpi .v { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+  #conflict-panel .legend { font-size: 10.5px; color: var(--text-faint); margin-top: 6px; }
+
+  /* ---------- холст ---------- */
   .node-title { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 13px; fill: var(--text); }
   .node-sub { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; fill: var(--text-dim); }
   .node-body { filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
   g.node { cursor: grab; touch-action: none; user-select: none; }
   g.node.dragging { cursor: grabbing; }
   g.node text { pointer-events: none; }
-  #toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20; background: #2a1519; border: 1px solid var(--red); color: #ffb4b4; font-size: 12.5px; padding: 8px 14px; border-radius: 3px; display: none; }
   .edge-path { fill: none; stroke-linecap: round; }
+  #toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 30; font-size: 12.5px;
+           padding: 8px 14px; border-radius: 3px; display: none; max-width: 70vw; }
+  #toast.bad { background: #2a1519; border: 1px solid var(--red); color: #ffb4b4; }
+  #toast.ok { background: #0f2a22; border: 1px solid var(--green); color: #a8f0d0; }
+  #empty-hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 11.5px; color: var(--text-faint); z-index: 5; pointer-events: none; }
 
-  #conflict-panel {
-    position: absolute; top: 64px; right: 16px; z-index: 9; width: 320px; max-height: calc(100vh - 80px); overflow-y: auto; display: none;
-    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 3px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.45); padding: 14px 16px; font-size: 12.5px;
+  @media (max-width: 900px) {
+    :root { --side-w: calc(100vw - 16px); }
+    #side { top: 8px; left: 8px; bottom: auto; max-height: 60vh; }
+    #right { top: auto; bottom: 8px; height: 42vh; width: calc(100vw - 16px); left: 8px; right: 8px; gap: 6px; }
+    #empty-hint { display: none; }
   }
-  #conflict-panel .title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
-  #conflict-panel .mech { color: var(--text-dim); font-size: 11.5px; margin-bottom: 10px; line-height: 1.4; }
-  #conflict-panel .goal { font-size: 11.5px; margin-bottom: 3px; }
-  #conflict-panel .goal b { color: var(--amber); font-weight: 600; }
-  #conflict-panel .goal.g b { color: var(--cyan); }
-  #conflict-panel .zrow { margin-top: 9px; }
-  #conflict-panel .zhead { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); margin-bottom: 3px; }
-  #conflict-panel .bar { position: relative; height: 10px; background: #1c262f; border-radius: 2px; overflow: hidden; }
-  #conflict-panel .bar .dem { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(239,91,91,0.35); }
-  #conflict-panel .bar .alc { position: absolute; left: 0; top: 0; bottom: 0; background: var(--cyan); }
-  #conflict-panel .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--panel-border); }
-  #conflict-panel .kpi .k { color: var(--text-dim); font-size: 11px; }
-  #conflict-panel .kpi .v { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
-  #conflict-panel .legend { font-size: 10.5px; color: var(--text-faint); margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -123,129 +150,265 @@
       </marker>
     </defs>
     <rect x="0" y="0" width="100%" height="100%" fill="url(#grid)"></rect>
-    <g id="edges-layer"></g>
-    <g id="nodes-layer"></g>
+    <g id="world">
+      <g id="edges-layer"></g>
+      <g id="nodes-layer"></g>
+    </g>
   </svg>
+  <div id="empty-hint">клик по узлу — его параметры · перетаскивание — раскладка · пробел — пуск/пауза · N — шаг · Esc — закрыть</div>
 
-  <div id="toolbar">
-    <select id="model-select" class="btn" title="Модель / схема конфликта">
-      <option value="pipeline">pipeline (Pump/Valve/Tank)</option>
-      <option value="factory">factory (Machine A/Buffer/B)</option>
-    </select>
-    <select id="mode-select" class="btn" title="Режим узлов">
-      <option value="passive">Режим: пассивный</option>
-      <option value="autonomous">Режим: автономный</option>
-      <option value="autonomous_llm" id="mode-llm">Режим: автономный (LLM)</option>
-    </select>
-    <div class="sep"></div>
-    <button class="btn primary" id="btn-play"><span id="play-label">Пуск</span></button>
-    <button class="btn" id="btn-step">Шаг</button>
-    <button class="btn" id="btn-reset">Пересоздать модель</button>
-    <div class="sep"></div>
-    <button class="btn" id="btn-addnode">+ Узел</button>
-    <button class="btn" id="btn-conflict" style="display:none">Скрыть метрики</button>
-    <button class="btn" id="btn-relayout" title="Вернуть автоматическую раскладку">Сбросить раскладку</button>
-    <div class="sep"></div>
-    <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim);">
-      Шаг <span id="step-count" style="color:var(--text);">0</span> ·
-      Завершено <span id="completed-count" style="color:var(--text);">0</span>
-    </span>
+  <!-- ===================== ЛЕВАЯ ПАНЕЛЬ ===================== -->
+  <div id="side" class="card">
+    <div class="side-head">
+      <button class="btn icon" id="btn-side" title="Свернуть / развернуть панель">☰</button>
+      <span class="brand">M2M Sandbox</span>
+      <button class="btn icon" id="btn-play-mini" title="Пуск / пауза (пробел)">▶</button>
+      <button class="btn icon" id="btn-step-mini" title="Один шаг (N)">+1</button>
+      <span class="stat mono">шаг <b id="step-count">0</b> · <span id="conn-status" style="color:var(--green)">●</span></span>
+    </div>
+    <div class="side-body">
+
+      <details class="sec" open>
+        <summary>Запуск</summary>
+        <div class="sec-body">
+          <div class="row-btns">
+            <button class="btn primary" id="btn-play" style="min-width:76px"><span id="play-label">▶ Пуск</span></button>
+            <button class="btn" id="btn-step" title="Один шаг (N)">Шаг</button>
+            <button class="btn" id="btn-step10" title="10 шагов">×10</button>
+            <button class="btn" id="btn-step100" title="100 шагов">×100</button>
+          </div>
+          <div class="field field-inline" style="margin-top:8px">
+            <label style="margin:0">Скорость</label>
+            <select id="speed" class="btn" style="flex:1">
+              <option value="1000">1 шаг/с</option>
+              <option value="500" selected>2 шага/с</option>
+              <option value="200">5 шагов/с</option>
+              <option value="80">12 шагов/с</option>
+            </select>
+          </div>
+          <div class="field" style="margin-top:4px">
+            <label>Кто принимает решения в узлах</label>
+            <select id="mode-select" class="full">
+              <option value="passive">пассивный — узлы просто передают поток</option>
+              <option value="autonomous">автономный — решают по правилу</option>
+              <option value="autonomous_llm" id="mode-llm">автономный (LLM) — решает локальная модель</option>
+            </select>
+          </div>
+          <div class="hint" id="run-summary"></div>
+        </div>
+      </details>
+
+      <details class="sec" open>
+        <summary>Модель</summary>
+        <div class="sec-body">
+          <div class="field">
+            <select id="model-select" class="full"></select>
+          </div>
+          <div id="model-params"></div>
+          <div class="row-btns">
+            <button class="btn primary" id="btn-create">Создать заново</button>
+            <button class="btn" id="btn-defaults" title="Вернуть значения по умолчанию">По умолчанию</button>
+          </div>
+          <div class="err" id="model-err"></div>
+          <div class="hint">Параметры здесь применяются при создании модели. Параметры отдельного узла меняются на ходу — кликни по нему.</div>
+        </div>
+      </details>
+
+      <details class="sec" open>
+        <summary>Графики</summary>
+        <div class="sec-body" id="charts"></div>
+      </details>
+
+      <details class="sec">
+        <summary>Добавить узел</summary>
+        <div class="sec-body">
+          <div class="field" id="an-type-field">
+            <label>Тип узла</label>
+            <select id="an-type"></select>
+          </div>
+          <div class="field">
+            <label>Имя</label>
+            <input id="an-name" type="text" placeholder="например Machine_C">
+          </div>
+          <div class="field" id="an-after-field">
+            <label>Подключить после узла</label>
+            <select id="an-after"></select>
+          </div>
+          <div class="field" id="an-mode-field">
+            <label>Как подключить</label>
+            <select id="an-mode">
+              <option value="insert">встроить в цепочку</option>
+              <option value="branch">новой веткой (параллельно)</option>
+            </select>
+          </div>
+          <div id="an-params"></div>
+          <button class="btn primary" id="an-submit">Добавить</button>
+          <div class="err" id="an-error"></div>
+        </div>
+      </details>
+
+      <details class="sec">
+        <summary>Вид</summary>
+        <div class="sec-body row-btns">
+          <button class="btn" id="btn-relayout">Сбросить раскладку</button>
+          <button class="btn" id="btn-conflict" style="display:none">Скрыть метрики</button>
+        </div>
+      </details>
+    </div>
   </div>
 
-  <div id="status">real_time: <span id="conn-status" class="conn-ok">подключено</span></div>
+  <!-- ===================== ПРАВАЯ КОЛОНКА ===================== -->
+  <div id="right">
+    <div id="inspector" class="card">
+      <div class="title"><span id="insp-title"></span><button class="btn icon x" id="insp-close" title="Закрыть (Esc)">✕</button></div>
+      <div class="sub" id="insp-sub"></div>
 
-  <div id="conflict-panel"></div>
+      <div id="insp-edit-wrap">
+        <h4>Параметры</h4>
+        <div id="insp-fields"></div>
+        <div class="row-btns">
+          <button class="btn primary" id="insp-apply">Применить</button>
+          <button class="btn" id="insp-revert">Отменить правки</button>
+        </div>
+        <div class="err" id="insp-err"></div>
+      </div>
+
+      <h4>Отказ</h4>
+      <div class="row-btns">
+        <div class="field field-inline" style="margin:0">
+          <input id="fail-steps" type="number" min="1" max="1000" value="5"><span style="font-size:11.5px;color:var(--text-dim)">шагов</span>
+        </div>
+        <button class="btn warn" id="btn-fail">Отказ</button>
+        <button class="btn warn" id="btn-fail-permanent">Насовсем</button>
+        <button class="btn" id="btn-recover">Восстановить</button>
+      </div>
+      <div class="row-btns" style="margin-top:8px">
+        <button class="btn danger" id="btn-remove">Удалить узел</button>
+      </div>
+
+      <h4>Состояние</h4>
+      <div id="insp-rows"></div>
+    </div>
+    <div id="conflict-panel" class="card"></div>
+  </div>
+
   <div id="toast"></div>
-
-  <div id="inspector">
-    <div class="title" id="insp-title"></div>
-    <div class="sub" id="insp-sub"></div>
-    <div id="insp-rows"></div>
-    <div class="actions">
-      <button class="btn warn" id="btn-fail">Отказ (5 шагов)</button>
-      <button class="btn danger" id="btn-fail-permanent">Отказ насовсем</button>
-      <button class="btn" id="btn-recover">Восстановить</button>
-    </div>
-  </div>
-
-  <div id="addnode-panel">
-    <div class="title">Добавить узел</div>
-    <div class="field">
-      <label>Тип узла</label>
-      <select id="an-type"></select>
-    </div>
-    <div class="field">
-      <label>Имя нового узла</label>
-      <input id="an-name" type="text" placeholder="например NewValve">
-    </div>
-    <div class="field">
-      <label>Вставить после узла</label>
-      <select id="an-after"></select>
-    </div>
-    <div class="field">
-      <label>Способ подключения</label>
-      <select id="an-mode">
-        <option value="insert">Встроить в цепочку (после выбранного)</option>
-        <option value="branch">Новая ветка от выбранного</option>
-      </select>
-    </div>
-    <div id="an-params"></div>
-    <div class="actions">
-      <button class="btn primary" id="an-submit">Добавить</button>
-      <button class="btn" id="an-cancel">Отмена</button>
-    </div>
-    <div id="an-error" style="color:var(--red); font-size:11.5px; margin-top:8px; display:none;"></div>
-  </div>
 </div>
 
 <script>
 (function () {
   "use strict";
   const NS = "http://www.w3.org/2000/svg";
-  const svg = document.getElementById('canvas');
-  const edgesLayer = document.getElementById('edges-layer');
-  const nodesLayer = document.getElementById('nodes-layer');
+  const $ = function (id) { return document.getElementById(id); };
+  const svg = $('canvas');
+  const edgesLayer = $('edges-layer');
+  const nodesLayer = $('nodes-layer');
+  const world = $('world');
+  let view = { s: 1, tx: 0, ty: 0 };   // мировые координаты -> экран
   let W = window.innerWidth, H = window.innerHeight;
   const NODE_W = 170, NODE_H = 78;
 
   let lastState = null;
+  let specs = {};             // /api/model_specs
   let selectedName = null;
-  let playing = false;
-  let playTimer = null;
-  let manualPos = {};      // ручные позиции узлов (после перетаскивания)
-  let stepInFlight = false;
-  let dragMoved = false;
-  let conflictHidden = false;  // пользователь закрыл панель метрик конфликта
-  let lastNodeUp = 0;      // время последнего отпускания на узле: клик сразу после него не считаем кликом по пустому месту
-  let dragging = false;    // пока тянем узел, автообновление (Пуск) не перерисовывает DOM
+  let inspFor = null;         // для какого узла сейчас построена форма параметров
+  let playing = false, playTimer = null, stepInFlight = false;
+  let manualPos = {};
+  let dragMoved = false, dragging = false, lastNodeUp = 0;
+  let conflictHidden = false;
+  let paramsFor = null;       // для какой модели построена форма параметров модели
 
+  // ------------------------------------------------------------ утилиты
   function trunc(str, n) { str = String(str); return str.length > n ? str.slice(0, n - 1) + '…' : str; }
-  function fmt(v) { return v === null || v === undefined ? '—' : (typeof v === 'number' ? Math.round(v * 100) / 100 : v); }
+  function fmt(v) {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'number') return String(Math.round(v * 100) / 100);
+    if (typeof v === 'boolean') return v ? 'да' : 'нет';
+    return String(v);
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   let toastTimer = null;
-  function toast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg; t.style.display = 'block';
+  function toast(msg, ok) {
+    const t = $('toast');
+    t.textContent = msg; t.className = ok ? 'ok' : 'bad'; t.style.display = 'block';
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.style.display = 'none'; }, 4000);
+    toastTimer = setTimeout(function () { t.style.display = 'none'; }, 3500);
   }
-
-  function handleResize() {
-    W = window.innerWidth; H = window.innerHeight;
-    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-  }
+  function handleResize() { W = window.innerWidth; H = window.innerHeight; svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); if (lastState) render(lastState); }
   window.addEventListener('resize', handleResize);
   handleResize();
 
-  function stateColor(s) {
-    if (s === 'working') return '#52d7e8';
-    if (s === 'failed') return '#ef5b5b';
-    if (s === 'blocked') return '#f0b429'; // обработал, но следующий узел не принимает
-    return '#4b5964'; // idle
+  function setConn(ok) { const c = $('conn-status'); c.style.color = ok ? 'var(--green)' : 'var(--red)'; c.title = ok ? 'подключено' : 'нет связи с live_server.py'; }
+
+  async function api(url, body) {
+    try {
+      const res = await fetch(url, body === undefined ? undefined : {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {})
+      });
+      const data = await res.json();
+      setConn(true);
+      if (!res.ok) return { error: data.error || 'Ошибка запроса' };
+      return { data: data };
+    } catch (e) { setConn(false); return { error: 'нет связи с сервером' }; }
+  }
+  async function post(url, body, quiet) {
+    const r = await api(url, body);
+    if (r.error) { if (!quiet) toast(r.error); return null; }
+    render(r.data);
+    return r.data;
   }
 
+  // ------------------------------------------------------------ поля форм
+  function fieldEl(f, value) {
+    const wrap = document.createElement('div');
+    wrap.className = 'field';
+    const label = document.createElement('label');
+    label.textContent = f.label;
+    let input;
+    if (f.type === 'choice') {
+      input = document.createElement('select');
+      f.options.forEach(function (o) {
+        const opt = document.createElement('option'); opt.value = o[0]; opt.textContent = o[1]; input.appendChild(opt);
+      });
+    } else {
+      input = document.createElement('input');
+      input.type = 'number';
+      if (f.min !== undefined) input.min = f.min;
+      if (f.max !== undefined) input.max = f.max;
+      input.step = f.step !== undefined ? f.step : 'any';
+    }
+    input.value = value;
+    input.dataset.name = f.name;
+    input.dataset.orig = String(value);
+    input.addEventListener('input', function () { input.classList.toggle('changed', input.value !== input.dataset.orig); });
+    input.addEventListener('change', function () { input.classList.toggle('changed', input.value !== input.dataset.orig); });
+    wrap.appendChild(label); wrap.appendChild(input);
+    return wrap;
+  }
+  function collect(container, onlyChanged) {
+    const out = {};
+    container.querySelectorAll('input[data-name], select[data-name]').forEach(function (inp) {
+      if (onlyChanged && inp.value === inp.dataset.orig) return;
+      out[inp.dataset.name] = inp.value;
+    });
+    return out;
+  }
+
+  // ------------------------------------------------------------ раскладка
+  // свободная область экрана между левой панелью и правой колонкой
+  function freeArea() {
+    const narrow = W < 900;
+    const side = $('side');
+    const left = narrow || side.classList.contains('collapsed') ? 16 : side.getBoundingClientRect().right + 24;
+    const rightBusy = $('inspector').style.display === 'block' || $('conflict-panel').style.display === 'block';
+    // на широком экране правая колонка справа, на узком -- снизу
+    const right = rightBusy && !narrow ? W - $('right').getBoundingClientRect().left + 24 : 16;
+    const top = narrow ? side.getBoundingClientRect().bottom + 12 : 16;
+    const bottom = narrow ? (rightBusy ? H - $('right').getBoundingClientRect().top + 12 : 16) : 40;
+    return { x: left, y: top, w: Math.max(120, W - left - right), h: Math.max(120, H - top - bottom) };
+  }
+  // автоматическая раскладка: колонка = глубина узла от истока (мировые координаты)
   function layoutPositions(nodes, edges) {
-    // глубина = длина самого длинного пути от истока; узлы одной глубины
-    // образуют колонку, поэтому ветвление раскладывается веером
     const depth = {};
     nodes.forEach(function (n) { depth[n.node] = 0; });
     for (let it = 0; it < nodes.length; it++) {
@@ -259,42 +422,53 @@
     }
     const columns = {};
     nodes.forEach(function (n) { (columns[depth[n.node]] = columns[depth[n.node]] || []).push(n.node); });
-    const positions = {};
-    const gapX = 220, gapY = 26, startX = 80;
+    const positions = {}, gapX = 205, gapY = 22;
     Object.keys(columns).forEach(function (d) {
-      const col = columns[d];
-      const total = col.length * NODE_H + (col.length - 1) * gapY;
-      col.forEach(function (name, i) {
-        positions[name] = { x: startX + Number(d) * gapX, y: H / 2 - total / 2 + i * (NODE_H + gapY) };
-      });
+      const col = columns[d], total = col.length * NODE_H + (col.length - 1) * gapY;
+      col.forEach(function (name, i) { positions[name] = { x: Number(d) * gapX, y: -total / 2 + i * (NODE_H + gapY) }; });
     });
     return positions;
   }
-
+  // масштаб и сдвиг, чтобы автоматическая раскладка целиком вошла в свободную область
+  function fitView(auto) {
+    const names = Object.keys(auto);
+    if (!names.length) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    names.forEach(function (n) { const p = auto[n]; x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x + NODE_W); y1 = Math.max(y1, p.y + NODE_H); });
+    const a = freeArea(), bw = x1 - x0, bh = y1 - y0;
+    const sc = Math.min(1, a.w / bw, a.h / bh);
+    view = { s: sc, tx: a.x + (a.w - bw * sc) / 2 - x0 * sc, ty: a.y + (a.h - bh * sc) / 2 - y0 * sc };
+    world.setAttribute('transform', 'translate(' + view.tx + ',' + view.ty + ') scale(' + view.s + ')');
+  }
+  function currentPositions() {
+    const p = layoutPositions(lastState.nodes, lastState.edges);
+    if (!dragging) fitView(p);   // во время перетаскивания масштаб не меняем
+    Object.keys(manualPos).forEach(function (n) { if (p[n]) p[n] = manualPos[n]; });
+    return p;
+  }
   function edgePathD(p1, p2) {
     const dx = Math.max(50, Math.abs(p2.x - p1.x) * 0.5);
     return 'M' + p1.x + ',' + p1.y + ' C' + (p1.x + dx) + ',' + p1.y + ' ' + (p2.x - dx) + ',' + p2.y + ' ' + p2.x + ',' + p2.y;
   }
+  function stateColor(s) {
+    if (s === 'working') return '#52d7e8';
+    if (s === 'failed') return '#ef5b5b';
+    if (s === 'blocked') return '#f0b429';
+    return '#4b5964';
+  }
 
   function redrawEdges() {
-    const data = lastState;
-    const positions = layoutPositions(data.nodes, data.edges);
-    Object.keys(manualPos).forEach(function (n) { if (positions[n]) positions[n] = manualPos[n]; });
+    const data = lastState, positions = currentPositions();
     edgesLayer.innerHTML = '';
     data.edges.forEach(function (e) {
       const p1 = positions[e.from], p2 = positions[e.to];
       if (!p1 || !p2) return;
-      const from = { x: p1.x + NODE_W, y: p1.y + NODE_H / 2 };
-      const to = { x: p2.x, y: p2.y + NODE_H / 2 };
       const path = document.createElementNS(NS, 'path');
-      path.setAttribute('d', edgePathD(from, to));
+      path.setAttribute('d', edgePathD({ x: p1.x + NODE_W, y: p1.y + NODE_H / 2 }, { x: p2.x, y: p2.y + NODE_H / 2 }));
       path.setAttribute('class', 'edge-path');
       let ecol = '#3a4854', ew = 3;
       const zinfo = data.conflict && data.conflict.zones.find(function (z) { return z.name === e.to; });
-      if (zinfo) {
-        ew = 2 + zinfo.allocated * 1.6;
-        ecol = zinfo.deficit > 0.05 ? '#f0a83c' : '#3fd992';
-      }
+      if (zinfo) { ew = 2 + Math.min(10, zinfo.allocated * 1.6); ecol = zinfo.deficit > 0.05 ? '#f0a83c' : '#3fd992'; }
       path.setAttribute('stroke', ecol);
       path.setAttribute('stroke-width', ew);
       path.setAttribute('marker-end', 'url(#arrow-' + (ecol === '#f0a83c' ? 'amber' : ecol === '#3fd992' ? 'green' : 'grey') + ')');
@@ -302,88 +476,50 @@
     });
   }
 
-  function render(data) {
-    if (lastState && lastState.model_name !== data.model_name) { manualPos = {}; conflictHidden = false; }
-    lastState = data;
-    if (dragging) return;   // перерисуем после отпускания
-    if (selectedName && !data.nodes.some(function (n) { return n.node === selectedName; })) {
-      selectedName = null;
-      document.getElementById('inspector').style.display = 'none';
-    }
-    document.getElementById('step-count').textContent = data.step;
-    document.getElementById('completed-count').textContent = data.completed;
-
-    syncModelSelect(data);
-    const modeSel = document.getElementById('mode-select');
-    modeSel.style.display = data.decision_mode ? '' : 'none';
-    // LLM подключена только к моделям конфликта
-    document.getElementById('mode-llm').hidden = !data.llm_available;
-    if (data.decision_mode && modeSel.value !== data.decision_mode) modeSel.value = data.decision_mode;
-    renderConflict(data.conflict);
-    const positions = layoutPositions(data.nodes, data.edges);
-    Object.keys(manualPos).forEach(function (n) { if (positions[n]) positions[n] = manualPos[n]; });
-
-    redrawEdges();
-
+  function drawNodes() {
+    const data = lastState, positions = currentPositions();
     nodesLayer.innerHTML = '';
     data.nodes.forEach(function (node) {
-      const pos = positions[node.node] || { x: 80, y: H / 2 };
+      const pos = positions[node.node] || { x: 0, y: 0 };
       const g = document.createElementNS(NS, 'g');
       g.setAttribute('class', 'node');
       g.setAttribute('transform', 'translate(' + pos.x + ',' + pos.y + ')');
-
       const color = stateColor(node.state);
-      const rect = document.createElementNS(NS, 'rect');
-      rect.setAttribute('class', 'node-body');
-      rect.setAttribute('width', NODE_W); rect.setAttribute('height', NODE_H); rect.setAttribute('rx', 6);
-      rect.setAttribute('fill', '#101820');
-      rect.setAttribute('stroke', selectedName === node.node ? color : '#202b34');
-      rect.setAttribute('stroke-width', selectedName === node.node ? 2.5 : 1);
-      g.appendChild(rect);
-
-      const bar = document.createElementNS(NS, 'rect');
-      bar.setAttribute('width', 4); bar.setAttribute('height', NODE_H); bar.setAttribute('rx', 2); bar.setAttribute('fill', color);
-      g.appendChild(bar);
-
-      const title = document.createElementNS(NS, 'text');
-      title.setAttribute('class', 'node-title'); title.setAttribute('x', 14); title.setAttribute('y', 24);
-      title.textContent = trunc(node.node, 20);
-      g.appendChild(title);
-
-      const sub1 = document.createElementNS(NS, 'text');
-      sub1.setAttribute('class', 'node-sub'); sub1.setAttribute('x', 14); sub1.setAttribute('y', 42);
+      const sel = selectedName === node.node;
+      function el(tag, attrs, text) {
+        const e = document.createElementNS(NS, tag);
+        Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+        if (text !== undefined) e.textContent = text;
+        g.appendChild(e); return e;
+      }
+      el('rect', { class: 'node-body', width: NODE_W, height: NODE_H, rx: 6, fill: '#101820',
+                   stroke: sel ? color : '#202b34', 'stroke-width': sel ? 2.5 : 1 });
+      el('rect', { width: 4, height: NODE_H, rx: 2, fill: color });
+      el('text', { class: 'node-title', x: 14, y: 24 }, trunc(node.node, 20));
       const decision = node.decision === 'REFUSE' ? ' · REFUSE' : '';
-      sub1.textContent = trunc(node.state.toUpperCase() + decision + (node.mode ? ' · ' + node.mode : '') + (node.current_task ? ' · ' + node.current_task : ''), 26);
-      g.appendChild(sub1);
-
-      const sub2 = document.createElementNS(NS, 'text');
-      sub2.setAttribute('class', 'node-sub'); sub2.setAttribute('x', 14); sub2.setAttribute('y', 58);
-      sub2.textContent = trunc('queue ' + fmt(node.queue) + ' · load ' + fmt(node.load), 26);
-      g.appendChild(sub2);
-
-      const meterBg = document.createElementNS(NS, 'rect');
-      meterBg.setAttribute('x', 12); meterBg.setAttribute('y', NODE_H - 12); meterBg.setAttribute('width', NODE_W - 24);
-      meterBg.setAttribute('height', 4); meterBg.setAttribute('rx', 2); meterBg.setAttribute('fill', '#1c262f');
-      g.appendChild(meterBg);
-      const meterFill = document.createElementNS(NS, 'rect');
-      meterFill.setAttribute('x', 12); meterFill.setAttribute('y', NODE_H - 12);
-      meterFill.setAttribute('width', Math.max(0, (NODE_W - 24) * Math.min(1, node.load)));
-      meterFill.setAttribute('height', 4); meterFill.setAttribute('rx', 2); meterFill.setAttribute('fill', color);
-      g.appendChild(meterFill);
+      el('text', { class: 'node-sub', x: 14, y: 42 },
+         trunc(node.state.toUpperCase() + decision + (node.mode ? ' · ' + node.mode : '') + (node.current_task ? ' · ' + node.current_task : ''), 26));
+      el('text', { class: 'node-sub', x: 14, y: 58 }, trunc('queue ' + fmt(node.queue) + ' · load ' + fmt(node.load), 26));
+      el('rect', { x: 12, y: NODE_H - 12, width: NODE_W - 24, height: 4, rx: 2, fill: '#1c262f' });
+      el('rect', { x: 12, y: NODE_H - 12, width: Math.max(0, (NODE_W - 24) * Math.min(1, node.load || 0)), height: 4, rx: 2, fill: color });
 
       g.addEventListener('pointerdown', function (ev) {
         if (ev.button !== undefined && ev.button !== 0) return;
         ev.preventDefault();
         const box = svg.getBoundingClientRect();
-        const offX = ev.clientX - box.left - pos.x, offY = ev.clientY - box.top - pos.y;
-        const startX = ev.clientX, startY = ev.clientY;
-        dragMoved = false;
-        dragging = true;
+        const toWorld = function (cx, cy) { return { x: (cx - box.left - view.tx) / view.s, y: (cy - box.top - view.ty) / view.s }; };
+        const w0 = toWorld(ev.clientX, ev.clientY);
+        const offX = w0.x - pos.x, offY = w0.y - pos.y;
+        const sx = ev.clientX, sy = ev.clientY;
+        dragMoved = false; dragging = true;
         function onMove(e) {
-          if (!dragMoved && Math.hypot(e.clientX - startX, e.clientY - startY) < 4) return;
+          if (!dragMoved && Math.hypot(e.clientX - sx, e.clientY - sy) < 4) return;
           dragMoved = true;
-          const nx = Math.min(Math.max(0, e.clientX - box.left - offX), W - NODE_W);
-          const ny = Math.min(Math.max(0, e.clientY - box.top - offY), H - NODE_H);
+          // не даём утащить узел за пределы экрана
+          const w = toWorld(e.clientX, e.clientY);
+          const lo = toWorld(box.left, box.top), hi = toWorld(box.left + W, box.top + H);
+          const nx = Math.min(Math.max(lo.x, w.x - offX), hi.x - NODE_W);
+          const ny = Math.min(Math.max(lo.y, w.y - offY), hi.y - NODE_H);
           manualPos[node.node] = { x: nx, y: ny };
           g.setAttribute('transform', 'translate(' + nx + ',' + ny + ')');
           g.classList.add('dragging');
@@ -393,344 +529,392 @@
           window.removeEventListener('pointermove', onMove);
           window.removeEventListener('pointerup', onUp);
           window.removeEventListener('pointercancel', onUp);
-          dragging = false;
-          lastNodeUp = Date.now();
-          if (!dragMoved) {           // обычный клик -> выбрать узел
-            selectedName = node.node;
-            showInspector(lastState.nodes.find(function (n) { return n.node === node.node; }) || node);
-          }
+          dragging = false; lastNodeUp = Date.now();
+          if (!dragMoved) select(node.node);
           render(lastState);
         }
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', onUp);
         window.addEventListener('pointercancel', onUp);
       });
-
       nodesLayer.appendChild(g);
     });
   }
 
-  function syncModelSelect(data) {
-    const sel = document.getElementById('model-select');
-    const models = data.available_models || [];
-    if (models.length && sel.options.length !== models.length) {
-      sel.innerHTML = '';
-      models.forEach(function (m) {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = (data.model_labels && data.model_labels[m]) || m;
-        sel.appendChild(opt);
-      });
-    }
-    if (data.model_name && sel.value !== data.model_name) sel.value = data.model_name;
+  // ------------------------------------------------------------ главный рендер
+  function render(data) {
+    if (lastState && lastState.model_name !== data.model_name) { manualPos = {}; conflictHidden = false; }
+    lastState = data;
+    $('step-count').textContent = data.step;
+    syncModelSelect(data);
+    syncModelParams(data);
+    syncMode(data);
+    renderSummary(data);
+    renderCharts(data);
+    renderConflict(data.conflict);
+    renderInspector();
+    syncAddNode(data);
+    if (dragging) return;
+    redrawEdges();
+    drawNodes();
   }
 
+  function syncModelSelect(data) {
+    const sel = $('model-select');
+    if (sel.options.length !== data.available_models.length) {
+      sel.innerHTML = '';
+      data.available_models.forEach(function (m) {
+        const opt = document.createElement('option'); opt.value = m; opt.textContent = data.model_labels[m] || m; sel.appendChild(opt);
+      });
+    }
+    if (document.activeElement !== sel && !sel.dataset.pending) sel.value = data.model_name;
+  }
+
+  function buildModelParams(name, values) {
+    const box = $('model-params');
+    box.innerHTML = '';
+    const spec = specs[name];
+    if (!spec) return;
+    spec.params.forEach(function (f) { box.appendChild(fieldEl(f, values && values[f.name] !== undefined ? values[f.name] : f.value)); });
+    paramsFor = name;
+  }
+  function syncModelParams(data) {
+    // форму не перестраиваем, пока пользователь её правит
+    if (paramsFor === data.model_name && !$('model-select').dataset.pending) return;
+    if ($('model-select').dataset.pending) return;
+    buildModelParams(data.model_name, data.model_params);
+  }
+
+  function syncMode(data) {
+    const sel = $('mode-select');
+    sel.disabled = !data.decision_mode;
+    $('mode-llm').hidden = !data.llm_available;
+    if (data.decision_mode && document.activeElement !== sel) sel.value = data.decision_mode;
+  }
+
+  function renderSummary(data) {
+    let s;
+    if (data.kind === 'conflict') {
+      const c = data.conflict;
+      s = 'воды ' + c.supply + ' / нужно ' + c.total_demand + ' · эффективность ' + (c.efficiency * 100).toFixed(1) + '% · Джайн ' + c.fairness;
+    } else {
+      const h = data.history[data.history.length - 1] || {};
+      s = 'завершено ' + data.completed + ' · в очередях ' + (h.queued || 0) + ' · отброшено на входе ' + (h.dropped || 0);
+    }
+    $('run-summary').textContent = s;
+  }
+
+  // ------------------------------------------------------------ графики
+  const CHARTS = {
+    conflict: [
+      { key: 'efficiency', label: 'Эффективность (накоплено), %', mul: 100, digits: 1 },
+      { key: 'fairness', label: 'Справедливость (Джайн), за шаг', mul: 1, digits: 2 },
+      { key: 'deficit', label: 'Дефицит воды за шаг', mul: 1, digits: 1 },
+      { key: 'wasted', label: 'Потеряно воды (накоплено)', mul: 1, digits: 1 },
+    ],
+    chain: [
+      { key: 'completed', label: 'Завершено задач (всего)', mul: 1, digits: 0 },
+      { key: 'queued', label: 'Задач в очередях', mul: 1, digits: 0 },
+      { key: 'blocked', label: 'Узлов в BLOCKED', mul: 1, digits: 0 },
+      { key: 'dropped', label: 'Отброшено на входе (всего)', mul: 1, digits: 0 },
+    ],
+  };
+  function renderCharts(data) {
+    const box = $('charts');
+    const defs = CHARTS[data.kind];
+    if (box.dataset.kind !== data.kind) {
+      box.innerHTML = defs.map(function (d) {
+        return '<div class="chart" data-key="' + d.key + '"><div class="ch-head"><span class="l">' + d.label +
+          '</span><span class="v"></span></div><svg viewBox="0 0 280 46" preserveAspectRatio="none"></svg></div>';
+      }).join('');
+      box.dataset.kind = data.kind;
+      box.querySelectorAll('.chart').forEach(function (ch) {
+        const svgEl = ch.querySelector('svg');
+        svgEl.addEventListener('mousemove', function (e) {
+          const r = svgEl.getBoundingClientRect();
+          ch.dataset.hover = String((e.clientX - r.left) / r.width);
+          drawChart(ch, lastState);
+        });
+        svgEl.addEventListener('mouseleave', function () { delete ch.dataset.hover; drawChart(ch, lastState); });
+      });
+    }
+    box.querySelectorAll('.chart').forEach(function (ch) { drawChart(ch, data); });
+  }
+  function drawChart(ch, data) {
+    const def = CHARTS[data.kind].find(function (d) { return d.key === ch.dataset.key; });
+    const hist = data.history.filter(function (h) { return h[def.key] !== undefined; });
+    const svgEl = ch.querySelector('svg');
+    const vals = hist.map(function (h) { return h[def.key] * def.mul; });
+    if (!vals.length) { svgEl.innerHTML = ''; return; }
+    let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    if (def.key === 'efficiency' || def.key === 'fairness') { hi = Math.max(hi, def.mul); }
+    lo = Math.min(lo, 0);
+    if (hi - lo < 1e-9) hi = lo + 1;
+    const n = vals.length, Wc = 280, Hc = 46, pad = 4;
+    const x = function (i) { return n === 1 ? Wc / 2 : (i / (n - 1)) * Wc; };
+    const y = function (v) { return Hc - pad - (v - lo) / (hi - lo) * (Hc - 2 * pad); };
+    let d = '';
+    vals.forEach(function (v, i) { d += (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(v).toFixed(1); });
+    let html = '<line x1="0" x2="280" y1="' + y(lo).toFixed(1) + '" y2="' + y(lo).toFixed(1) + '" stroke="#202b34" stroke-width="1"/>' +
+      '<path d="' + d + '" fill="none" stroke="#52d7e8" stroke-width="1.6" vector-effect="non-scaling-stroke"/>';
+    let idx = n - 1;
+    if (ch.dataset.hover !== undefined) {
+      idx = Math.max(0, Math.min(n - 1, Math.round(Number(ch.dataset.hover) * (n - 1))));
+      html += '<line x1="' + x(idx).toFixed(1) + '" x2="' + x(idx).toFixed(1) + '" y1="0" y2="46" stroke="#4b5964" stroke-width="1" vector-effect="non-scaling-stroke"/>';
+    }
+    html += '<circle cx="' + x(idx).toFixed(1) + '" cy="' + y(vals[idx]).toFixed(1) + '" r="2.5" fill="#52d7e8"/>';
+    svgEl.innerHTML = html;
+    ch.querySelector('.v').textContent = (ch.dataset.hover !== undefined ? 'шаг ' + hist[idx].step + ': ' : '') + vals[idx].toFixed(def.digits);
+  }
+
+  // ------------------------------------------------------------ панель конфликта
   function renderConflict(c) {
-    const panel = document.getElementById('conflict-panel');
-    const cbtn = document.getElementById('btn-conflict');
+    const panel = $('conflict-panel'), cbtn = $('btn-conflict');
     if (!c) { panel.style.display = 'none'; cbtn.style.display = 'none'; return; }
     cbtn.style.display = '';
     cbtn.textContent = conflictHidden ? 'Показать метрики' : 'Скрыть метрики';
     if (conflictHidden) { panel.style.display = 'none'; return; }
     panel.style.display = 'block';
     const maxV = Math.max(5, ...c.zones.map(function (z) { return Math.max(z.need, z.demand); }));
-    const DECISION_COLORS = { ACCEPT: '#52d7e8', REFUSE: '#8a9aa6', MODIFY: '#f0b429' };
-    let h = '<div class="title">' + c.title + '</div>' +
-      '<div class="mech">' + c.mechanism + '</div>' +
-      '<div class="goal"><b>Локальная цель:</b> ' + c.local_goal + '</div>' +
-      '<div class="goal g"><b>Глобальная цель:</b> ' + c.global_goal + '</div>';
+    const DC = { ACCEPT: '#52d7e8', REFUSE: '#8a9aa6', MODIFY: '#f0b429' };
+    let h = '<div class="title">' + esc(c.title) + '</div><div class="mech">' + esc(c.mechanism) + '</div>' +
+      '<div class="goal"><b>Локальная цель:</b> ' + esc(c.local_goal) + '</div>' +
+      '<div class="goal g"><b>Глобальная цель:</b> ' + esc(c.global_goal) + '</div>';
     c.zones.forEach(function (z) {
-      const tag = z.decision
-        ? ' <b style="color:' + DECISION_COLORS[z.decision] + '">' + z.decision + '</b>' : '';
+      const tag = z.decision ? ' <b style="color:' + DC[z.decision] + '">' + z.decision + '</b>' : '';
       const requested = Math.abs(z.demand - z.need) > 0.05 ? ' · запросил ' + z.demand : '';
-      h += '<div class="zrow"><div class="zhead"><span>' + z.name + ' · приор. ' + z.priority + tag +
-        (z.bid ? ' · ставка ' + z.bid : '') + '</span><span>' + z.allocated + ' / ' + z.need + requested +
-        (z.deficit > 0.05 ? ' · дефицит ' + z.deficit : '') + '</span></div>' +
+      h += '<div class="zrow" data-zone="' + esc(z.name) + '"><div class="zhead"><span>' + esc(z.name) + ' · приор. ' + z.priority + tag +
+        (z.bid ? ' · ставка ' + z.bid : '') + '</span><span>' + z.allocated + ' / ' + z.need + requested + '</span></div>' +
         '<div class="bar"><div class="dem" style="width:' + (100 * z.need / maxV) + '%"></div>' +
         '<div class="alc" style="width:' + (100 * z.allocated / maxV) + '%"></div></div>' +
-        (z.decision_reason ? '<div class="legend">' + z.decision_reason + '</div>' : '') + '</div>';
+        (z.decision_reason ? '<div class="legend">' + esc(z.decision_reason) + '</div>' : '') + '</div>';
     });
-    h += '<div class="legend">красный фон — реальная потребность, голубой — выделено</div>';
+    h += '<div class="legend">красный фон — потребность, голубой — выделено · клик по зоне — её параметры</div>';
     h += '<div class="kpis">' +
-      kpi('Предложение / доступно', c.supply + ' / ' + c.available) +
+      kpi('Источник / доступно', c.supply + ' / ' + c.available) +
       kpi('Потребность / запрошено', c.total_demand + ' / ' + c.total_requested) +
       kpi('Дефицит за шаг', c.deficit) +
-      kpi('Эффективность vs оптимум', (c.efficiency * 100).toFixed(1) + '%') +
+      kpi('Эффективность', (c.efficiency * 100).toFixed(1) + '%') +
       kpi('Справедливость (Jain)', c.fairness) +
-      kpi(c.tank_level !== null ? 'Уровень резервуара' : 'Потеряно воды', c.tank_level !== null ? c.tank_level : c.cum_wasted) +
-      (c.tank_level !== null ? kpi('Потеряно воды', c.cum_wasted) : '') +
-      kpi('Потребность сверх ёмкости очередей', c.lost_demand) +
-      '</div>';
+      kpi('Потеряно воды', c.cum_wasted) +
+      (c.tank_level !== null ? kpi('Уровень бака', c.tank_level) : '') +
+      kpi('Потребность сверх очередей', c.lost_demand) + '</div>';
     panel.innerHTML = h;
+    panel.querySelectorAll('.zrow').forEach(function (row) {
+      row.addEventListener('click', function () { select(row.dataset.zone); });
+    });
   }
   function kpi(k, v) { return '<div class="kpi"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>'; }
 
-  function showInspector(node) {
-    const panel = document.getElementById('inspector');
-    document.getElementById('addnode-panel').style.display = 'none';
+  // ------------------------------------------------------------ инспектор узла
+  function select(name) { selectedName = name; inspFor = null; render(lastState); }
+  function closeInspector() { selectedName = null; inspFor = null; $('inspector').style.display = 'none'; if (lastState) render(lastState); }
+
+  function renderInspector() {
+    const panel = $('inspector');
+    const node = selectedName && lastState.nodes.find(function (n) { return n.node === selectedName; });
+    if (!node) { panel.style.display = 'none'; selectedName = null; inspFor = null; return; }
     panel.style.display = 'block';
-    document.getElementById('insp-title').textContent = node.node;
-    document.getElementById('insp-sub').textContent = 'узел реальной Python-модели';
-    const rows = document.getElementById('insp-rows');
-    rows.innerHTML = '';
-    Object.keys(node).forEach(function (key) {
-      if (key === 'node') return;
-      const row = document.createElement('div');
-      row.className = 'row';
-      row.innerHTML = '<span class="k">' + key + '</span><span>' + fmt(node[key]) + '</span>';
-      rows.appendChild(row);
-    });
-  }
-
-  async function fetchState() {
-    try {
-      const res = await fetch('/api/state');
-      const data = await res.json();
-      document.getElementById('conn-status').textContent = 'подключено';
-      document.getElementById('conn-status').className = 'conn-ok';
-      render(data);
-      if (selectedName) {
-        const n = data.nodes.find(function (x) { return x.node === selectedName; });
-        if (n) showInspector(n);
-      }
-    } catch (e) {
-      document.getElementById('conn-status').textContent = 'нет связи с live_server.py';
-      document.getElementById('conn-status').className = 'conn-bad';
-    }
-  }
-
-  async function postJson(url, body) {
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body || {})
-      });
-      const data = await res.json();
-      if (!res.ok) { toast(data.error || 'Ошибка запроса'); return null; }
-      document.getElementById('conn-status').textContent = 'подключено';
-      document.getElementById('conn-status').className = 'conn-ok';
-      render(data);
-      return data;
-    } catch (e) {
-      document.getElementById('conn-status').textContent = 'нет связи с live_server.py';
-      document.getElementById('conn-status').className = 'conn-bad';
-      return null;
-    }
-  }
-
-  // Закрыть все всплывающие окна: инспектор узла, форму добавления узла и
-  // панель метрик конфликта; снять выделение узла.
-  function closeAllPanels() {
-    selectedName = null;
-    document.getElementById('inspector').style.display = 'none';
-    document.getElementById('addnode-panel').style.display = 'none';
-    if (lastState && lastState.conflict) conflictHidden = true;
-    if (lastState) render(lastState);
-  }
-
-  // Клик по пустому месту закрывает все окна. Слушаем весь document, а не
-  // только svg, чтобы клик по любому "пустому" элементу (в т.ч. по обёртке
-  // страницы) тоже сработал. Клики по самим узлам, панелям, тулбару и
-  // статусу игнорируются.
-  document.addEventListener('click', function (ev) {
-    const t = ev.target;
-    if (!t.closest) return;
-    if (t.closest('g.node, #toolbar, #inspector, #addnode-panel, #conflict-panel, #status, #toast')) return;
-    // узел перерисовывается на pointerup, поэтому сам клик по нему может
-    // прийти уже на пустой холст -- такие клики игнорируем
-    if (Date.now() - lastNodeUp < 300) return;
-    closeAllPanels();
-  });
-
-  window.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Escape') closeAllPanels();
-  });
-
-  document.getElementById('btn-conflict').addEventListener('click', function () {
-    conflictHidden = !conflictHidden;
-    if (lastState) render(lastState);
-  });
-
-  document.getElementById('btn-step').addEventListener('click', function () { postJson('/api/step', { n: 1 }); });
-
-  const playBtn = document.getElementById('btn-play');
-  const playLabel = document.getElementById('play-label');
-  playBtn.addEventListener('click', function () {
-    playing = !playing;
-    playLabel.textContent = playing ? 'Пауза' : 'Пуск';
-    if (playing) {
-      playTimer = setInterval(async function () {
-        if (stepInFlight) return;
-        stepInFlight = true;
-        await postJson('/api/step', { n: 1 });
-        stepInFlight = false;
-      }, 500);
+    $('insp-title').textContent = node.node;
+    const fields = lastState.editable[node.node] || [];
+    $('insp-sub').textContent = fields.length ? 'изменения применяются сразу, без пересоздания модели' : 'у этого узла нет настраиваемых параметров';
+    // форму строим один раз на узел, чтобы обновления по шагам не стирали ввод
+    if (inspFor !== node.node) {
+      const box = $('insp-fields');
+      box.innerHTML = '';
+      fields.forEach(function (f) { box.appendChild(fieldEl(f, f.value)); });
+      $('insp-edit-wrap').style.display = fields.length ? '' : 'none';
+      $('insp-err').style.display = 'none';
+      inspFor = node.node;
     } else {
-      clearInterval(playTimer);
-    }
-  });
-
-  document.getElementById('btn-reset').addEventListener('click', function () {
-    const name = document.getElementById('model-select').value;
-    selectedName = null;
-    document.getElementById('inspector').style.display = 'none';
-    postJson('/api/reset', { model_name: name });
-  });
-
-  document.getElementById('mode-select').addEventListener('change', function (evt) {
-    if (evt.target.value === 'autonomous_llm') toast('LLM решает за каждую зону: один шаг ~1–2 с');
-    postJson('/api/decision_mode', { mode: evt.target.value }).then(function (data) {
-      if (!data && lastState) evt.target.value = lastState.decision_mode;  // ошибка -- вернуть прежний режим
-    });
-  });
-
-  document.getElementById('model-select').addEventListener('change', function (evt) {
-    selectedName = null;
-    document.getElementById('inspector').style.display = 'none';
-    postJson('/api/reset', { model_name: evt.target.value });
-  });
-
-  document.getElementById('btn-relayout').addEventListener('click', function () {
-    manualPos = {};
-    if (lastState) render(lastState);
-  });
-
-  document.getElementById('btn-fail').addEventListener('click', function () {
-    if (!selectedName) return;
-    postJson('/api/fail', { node: selectedName, duration: 5 });
-  });
-  document.getElementById('btn-fail-permanent').addEventListener('click', function () {
-    if (!selectedName) return;
-    postJson('/api/fail', { node: selectedName, permanent: true });
-  });
-  document.getElementById('btn-recover').addEventListener('click', function () {
-    if (!selectedName) return;
-    postJson('/api/recover', { node: selectedName });
-  });
-
-  // -------------------------------------------------------------- //
-  // Добавление нового узла через интерфейс (/api/node_types, /api/add_node)
-  // -------------------------------------------------------------- //
-  let nodeTypes = [];
-
-  async function loadNodeTypes() {
-    try {
-      const res = await fetch('/api/node_types');
-      nodeTypes = await res.json();
-      const sel = document.getElementById('an-type');
-      sel.innerHTML = '';
-      nodeTypes.forEach(function (t) {
-        const opt = document.createElement('option');
-        opt.value = t.class_name;
-        opt.textContent = t.class_name;
-        sel.appendChild(opt);
+      // обновить «исходные» значения у полей, которые пользователь не трогал
+      $('insp-fields').querySelectorAll('[data-name]').forEach(function (inp) {
+        const f = fields.find(function (x) { return x.name === inp.dataset.name; });
+        if (f && inp.value === inp.dataset.orig && document.activeElement !== inp) { inp.value = f.value; inp.dataset.orig = String(f.value); }
       });
-      renderParamFields();
-    } catch (e) {
-      // сервер мог быть недоступен в момент загрузки страницы -- не критично,
-      // список подтянется при следующем открытии панели
     }
+    $('btn-remove').style.display = lastState.removable.indexOf(node.node) >= 0 ? '' : 'none';
+    const rows = $('insp-rows');
+    rows.innerHTML = Object.keys(node).filter(function (k) { return k !== 'node'; }).map(function (k) {
+      return '<div class="kv"><span class="k">' + esc(k) + '</span><span class="v">' + esc(fmt(node[k])) + '</span></div>';
+    }).join('');
   }
 
-  function renderParamFields() {
-    const type = nodeTypes.find(function (t) { return t.class_name === document.getElementById('an-type').value; });
-    const container = document.getElementById('an-params');
-    container.innerHTML = '';
-    if (!type) return;
-    const allParams = type.common_params.concat(type.extra_params);
-    allParams.forEach(function (p) {
-      const field = document.createElement('div');
-      field.className = 'field';
-      const label = document.createElement('label');
-      const hasDefault = p.default !== null && p.default !== undefined;
-      label.textContent = p.name + (hasDefault ? ' (по умолч. ' + p.default + ')' : '');
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.dataset.paramName = p.name;
-      input.placeholder = hasDefault ? String(p.default) : '';
-      field.appendChild(label);
-      field.appendChild(input);
-      container.appendChild(field);
+  $('insp-apply').addEventListener('click', async function () {
+    const params = collect($('insp-fields'), true);
+    const err = $('insp-err');
+    if (!Object.keys(params).length) { err.textContent = 'Ничего не изменено.'; err.style.display = 'block'; return; }
+    const r = await api('/api/node_params', { node: selectedName, params: params });
+    if (r.error) { err.textContent = r.error; err.style.display = 'block'; return; }
+    err.style.display = 'none';
+    inspFor = null;
+    render(r.data);
+    toast('Параметры ' + selectedName + ' обновлены', true);
+  });
+  $('insp-revert').addEventListener('click', function () { inspFor = null; renderInspector(); });
+  $('insp-close').addEventListener('click', closeInspector);
+
+  $('btn-fail').addEventListener('click', function () {
+    const n = parseInt($('fail-steps').value, 10);
+    if (!(n >= 1)) { toast('Укажите длительность отказа: целое число ≥ 1'); return; }
+    post('/api/fail', { node: selectedName, duration: n });
+  });
+  $('btn-fail-permanent').addEventListener('click', function () { post('/api/fail', { node: selectedName, permanent: true }); });
+  $('btn-recover').addEventListener('click', function () { post('/api/recover', { node: selectedName }); });
+  $('btn-remove').addEventListener('click', async function () {
+    const name = selectedName;
+    if (!confirm('Удалить узел ' + name + '?')) return;
+    const r = await api('/api/remove_node', { node: name });
+    if (r.error) { toast(r.error); return; }
+    delete manualPos[name];
+    selectedName = null; inspFor = null;
+    render(r.data);
+    toast('Узел ' + name + ' удалён' + (r.data.lost_tasks ? ' · потеряно задач: ' + r.data.lost_tasks : ''), true);
+  });
+
+  // ------------------------------------------------------------ модель
+  $('model-select').addEventListener('change', function (e) {
+    // выбор модели только готовит форму; создаётся по кнопке
+    e.target.dataset.pending = '1';
+    buildModelParams(e.target.value);
+    $('btn-create').textContent = 'Создать «' + trunc(specs[e.target.value] ? specs[e.target.value].label : e.target.value, 22) + '»';
+  });
+  $('btn-create').addEventListener('click', async function () {
+    const sel = $('model-select');
+    const r = await api('/api/reset', { model_name: sel.value, params: collect($('model-params'), false) });
+    const err = $('model-err');
+    if (r.error) { err.textContent = r.error; err.style.display = 'block'; return; }
+    err.style.display = 'none';
+    delete sel.dataset.pending;
+    $('btn-create').textContent = 'Создать заново';
+    selectedName = null; inspFor = null; paramsFor = null;
+    render(r.data);
+    toast('Модель создана', true);
+  });
+  $('btn-defaults').addEventListener('click', function () { buildModelParams($('model-select').value); });
+
+  $('mode-select').addEventListener('change', function (evt) {
+    if (evt.target.value === 'autonomous_llm') toast('LLM решает за каждую зону: один шаг ~1–2 с', true);
+    post('/api/decision_mode', { mode: evt.target.value }).then(function (data) {
+      if (!data && lastState) evt.target.value = lastState.decision_mode;
     });
-  }
+  });
 
-  function refreshInsertAfterOptions() {
-    const sel = document.getElementById('an-after');
+  // ------------------------------------------------------------ запуск
+  async function stepN(n) {
+    if (stepInFlight) return;
+    stepInFlight = true;
+    await post('/api/step', { n: n });
+    stepInFlight = false;
+  }
+  function setPlaying(on) {
+    playing = on;
+    $('play-label').textContent = on ? '❚❚ Пауза' : '▶ Пуск';
+    $('btn-play-mini').textContent = on ? '❚❚' : '▶';
+    clearInterval(playTimer);
+    if (on) playTimer = setInterval(function () { stepN(1); }, Number($('speed').value));
+  }
+  $('btn-play').addEventListener('click', function () { setPlaying(!playing); });
+  $('speed').addEventListener('change', function () { if (playing) setPlaying(true); });
+  $('btn-step').addEventListener('click', function () { stepN(1); });
+  $('btn-play-mini').addEventListener('click', function () { setPlaying(!playing); });
+  $('btn-step-mini').addEventListener('click', function () { stepN(1); });
+  $('btn-step10').addEventListener('click', function () { stepN(10); });
+  $('btn-step100').addEventListener('click', function () { stepN(100); });
+
+  // ------------------------------------------------------------ добавление узла
+  let nodeTypes = [];
+  async function loadNodeTypes() {
+    const r = await api('/api/node_types');
+    if (r.error) return;
+    nodeTypes = r.data;
+    const sel = $('an-type');
     sel.innerHTML = '';
-    if (!lastState) return;
-    // после конца цепочки (Output -- у него нет исходящих связей) вставлять нельзя
-    const anchors = lastState.nodes.filter(function (n) {
-      return lastState.edges.some(function (e) { return e.from === n.node; });
+    nodeTypes.forEach(function (t) { const o = document.createElement('option'); o.value = t.class_name; o.textContent = t.class_name; sel.appendChild(o); });
+    renderParamFields();
+  }
+  function renderParamFields() {
+    const type = nodeTypes.find(function (t) { return t.class_name === $('an-type').value; });
+    const box = $('an-params');
+    box.innerHTML = '';
+    if (!type) return;
+    type.common_params.concat(type.extra_params).forEach(function (p) {
+      const wrap = document.createElement('div'); wrap.className = 'field';
+      const has = p.default !== null && p.default !== undefined;
+      wrap.innerHTML = '<label>' + esc(p.name) + (has ? ' (по умолч. ' + esc(p.default) + ')' : '') + '</label>';
+      const inp = document.createElement('input'); inp.type = 'text'; inp.dataset.param = p.name; inp.placeholder = has ? String(p.default) : '';
+      wrap.appendChild(inp); box.appendChild(wrap);
     });
-    anchors.forEach(function (n) {
-      const opt = document.createElement('option');
-      opt.value = n.node;
-      opt.textContent = n.node;
-      sel.appendChild(opt);
-    });
-    if (anchors.length) {
-      sel.value = anchors[anchors.length - 1].node;
+  }
+  let addKind = null;
+  function syncAddNode(data) {
+    if (addKind !== data.kind) { addKind = data.kind; loadNodeTypes(); }
+    const chain = data.kind === 'chain';
+    $('an-after-field').style.display = chain ? '' : 'none';
+    $('an-mode-field').style.display = chain ? '' : 'none';
+    $('an-type-field').style.display = chain ? '' : 'none';
+    $('an-name').placeholder = chain ? 'например Machine_C' : 'например Zone4';
+    const sel = $('an-after');
+    if (document.activeElement === sel) return;
+    const anchors = data.nodes.filter(function (n) { return data.edges.some(function (e) { return e.from === n.node; }); })
+                              .map(function (n) { return n.node; });
+    if (sel.dataset.list !== anchors.join('|')) {
+      const keep = sel.value;
+      sel.innerHTML = anchors.map(function (a) { return '<option>' + esc(a) + '</option>'; }).join('');
+      sel.value = anchors.indexOf(keep) >= 0 ? keep : anchors[anchors.length - 1];
+      sel.dataset.list = anchors.join('|');
     }
   }
-
-  document.getElementById('btn-addnode').addEventListener('click', function () {
-    document.getElementById('inspector').style.display = 'none';
-    refreshInsertAfterOptions();
-    document.getElementById('an-error').style.display = 'none';
-    document.getElementById('addnode-panel').style.display = 'block';
-  });
-
-  document.getElementById('an-cancel').addEventListener('click', function () {
-    document.getElementById('addnode-panel').style.display = 'none';
-  });
-
-  document.getElementById('an-type').addEventListener('change', renderParamFields);
-
-  document.getElementById('an-submit').addEventListener('click', async function () {
-    const className = document.getElementById('an-type').value;
-    const name = document.getElementById('an-name').value.trim();
-    const insertAfter = document.getElementById('an-after').value;
-    const errBox = document.getElementById('an-error');
-    errBox.style.display = 'none';
-
-    if (!name) {
-      errBox.textContent = 'Укажите имя узла.';
-      errBox.style.display = 'block';
-      return;
-    }
-
+  $('an-type').addEventListener('change', renderParamFields);
+  $('an-submit').addEventListener('click', async function () {
+    const err = $('an-error');
+    const name = $('an-name').value.trim();
+    if (!name) { err.textContent = 'Укажите имя.'; err.style.display = 'block'; return; }
     const params = {};
     document.querySelectorAll('#an-params input').forEach(function (inp) {
-      const raw = inp.value.trim();
-      if (raw === '') return;
-      const num = Number(raw);
-      params[inp.dataset.paramName] = isNaN(num) ? raw : num;
+      const raw = inp.value.trim(); if (raw === '') return;
+      const num = Number(raw); params[inp.dataset.param] = isNaN(num) ? raw : num;
     });
-
-    try {
-      const res = await fetch('/api/add_node', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ class_name: className, name: name, insert_after: insertAfter, mode: document.getElementById('an-mode').value, params: params })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        errBox.textContent = data.error || 'Ошибка добавления узла.';
-        errBox.style.display = 'block';
-        return;
-      }
-      render(data);
-      document.getElementById('addnode-panel').style.display = 'none';
-      document.getElementById('an-name').value = '';
-    } catch (e) {
-      errBox.textContent = 'Нет связи с сервером.';
-      errBox.style.display = 'block';
-    }
+    const r = await api('/api/add_node', { class_name: $('an-type').value, name: name,
+      insert_after: $('an-after').value, mode: $('an-mode').value, params: params });
+    if (r.error) { err.textContent = r.error; err.style.display = 'block'; return; }
+    err.style.display = 'none';
+    $('an-name').value = '';
+    render(r.data);
+    select(name);
+    toast('Узел ' + name + ' добавлен', true);
   });
 
-  loadNodeTypes();
-  fetchState();
+  // ------------------------------------------------------------ вид и клавиатура
+  $('btn-side').addEventListener('click', function () { $('side').classList.toggle('collapsed'); if (lastState) render(lastState); });
+  $('btn-relayout').addEventListener('click', function () { manualPos = {}; if (lastState) render(lastState); });
+  $('btn-conflict').addEventListener('click', function () { conflictHidden = !conflictHidden; if (lastState) render(lastState); });
+
+  document.addEventListener('click', function (ev) {
+    const t = ev.target;
+    // элемент мог быть перерисован обработчиком самого клика (панель зон) --
+    // такой клик не «по пустому месту»
+    if (!t.closest || !document.contains(t) || t.closest('g.node, #side, #right, #toast')) return;
+    if (Date.now() - lastNodeUp < 300) return;
+    if (selectedName) closeInspector();
+  });
+  window.addEventListener('keydown', function (ev) {
+    const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName);
+    if (ev.key === 'Escape') { if (typing) document.activeElement.blur(); else closeInspector(); return; }
+    if (typing) return;
+    if (ev.key === ' ') { ev.preventDefault(); setPlaying(!playing); }
+    else if (ev.key === 'n' || ev.key === 'N' || ev.key === 'т' || ev.key === 'Т') stepN(1);
+  });
+
+  // ------------------------------------------------------------ старт
+  async function start() {
+    if (W < 900) $('side').classList.add('collapsed');   // на телефоне сначала схема
+    const s = await api('/api/model_specs');
+    if (!s.error) specs = s.data;
+    const r = await api('/api/state');
+    if (r.data) render(r.data);
+  }
+  start();
 })();
 </script>
 </body>

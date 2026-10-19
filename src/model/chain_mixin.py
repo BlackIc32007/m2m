@@ -94,3 +94,29 @@ class ChainModelMixin:
         # после anchor, чтобы задача не "перепрыгивала" через него.
         self.nodes.insert(anchor_index + 1, new_node)
         return new_node
+
+    def remove_node(self, name: str) -> int:
+        """Удалить узел из цепочки; его приёмники наследуют поставщики узла.
+        Задачи удалённого узла (очередь и текущая) передаются его приёмникам
+        через обычный accept_task; те, что никто не принял, теряются.
+        Возвращает число потерянных задач. Input и Output удалять нельзя."""
+        node = self._find_node(name)
+        if node.is_endpoint:
+            raise ValueError(f"{name} -- конец цепочки, его удалить нельзя")
+        for up in self.nodes:
+            if node in up.downstreams:
+                merged = []
+                for d in up.downstreams:
+                    for t in (node.downstreams if d is node else [d]):
+                        if t not in merged:
+                            merged.append(t)
+                up.downstreams = merged
+        tasks = ([node.current_task] if node.current_task else []) + list(node.queue)
+        lost = sum(1 for task in tasks
+                   if not any(d.accept_task(task) for d in node.downstreams))
+        self.nodes.remove(node)
+        node.remove()  # снять с регистрации в Mesa (model.agents)
+        if self.logger:
+            self.logger.log_event(simulation_step=self.steps, node_id=name, event="node_removed",
+                                  details={"lost_tasks": lost})
+        return lost

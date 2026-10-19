@@ -42,42 +42,23 @@ from src.model.conflict_model import ConflictModel
 from src.model.zone_policies import RulePolicy, TokenLLMPolicy
 from src.llm import token_decision
 from src.llm.zone_context import TOPOLOGY_BLOCKS
+from src.simulation import sandbox
 
 app = Flask(__name__, static_folder=None)
 
-MODEL_FACTORIES = {
-    "pipeline": lambda: PipelineModel(
-        flow_arrival_interval=1,
-        pump_processing_time=1,
-        valve_processing_time=3,
-        tank_processing_time=1,
-        queue_capacity=10,
-        valve_safety_threshold=0.5,
-    ),
-    "factory": lambda: FactoryModel(
-        task_arrival_interval=2,
-        processing_time=2,
-        queue_capacity=10,
-    ),
-    # --- модели конфликта "узел vs система" (см. src/model/conflict_model.py) ---
-    "conflict_distributor_prop": lambda: ConflictModel("distributor", policy="proportional"),
-    "conflict_distributor_equal": lambda: ConflictModel("distributor", policy="equal"),
-    "conflict_distributor_priority": lambda: ConflictModel("distributor", policy="priority"),
-    "conflict_shared_tank": lambda: ConflictModel("shared_tank"),
-    "conflict_auction": lambda: ConflictModel("auction"),
-}
+MODELS = sandbox.MODELS
+HISTORY_LEN = 400  # сколько последних шагов хранить для графиков
 
-MODEL_LABELS = {
-    "pipeline": "pipeline (Pump/Valve/Tank)",
-    "factory": "factory (Machine A/Buffer/B)",
-    "conflict_distributor_prop": "A. Арбитр -- пропорционально спросу",
-    "conflict_distributor_equal": "A. Арбитр -- поровну",
-    "conflict_distributor_priority": "A. Арбитр -- по приоритету",
-    "conflict_shared_tank": "B. Общий резервуар",
-    "conflict_auction": "C. Аукцион",
-}
 
-state = {"model_name": "pipeline", "model": MODEL_FACTORIES["pipeline"](), "decision_mode": "passive"}
+def _new_model(name, params=None):
+    """Создать модель с параметрами (значения по умолчанию + переданные)."""
+    p = sandbox.model_params(name, params)
+    model = MODELS[name]["make"](p)
+    state.update(model_name=name, model=model, params=p, history=[sandbox.metrics(model)])
+    return model
+
+
+state = {"decision_mode": "passive"}
 
 
 # Режимы в интерфейсе:
@@ -182,8 +163,15 @@ def serialize() -> dict:
     return {
         "step": model.steps,
         "model_name": state["model_name"],
-        "available_models": list(MODEL_FACTORIES.keys()),
-        "model_labels": MODEL_LABELS,
+        "kind": "conflict" if isinstance(model, ConflictModel) else "chain",
+        "available_models": list(MODELS),
+        "model_labels": {k: v["label"] for k, v in MODELS.items()},
+        "model_params": state["params"],
+        "history": state["history"],
+        "editable": {n.name: sandbox.editable(n) for n in model.nodes},
+        "removable": [n.name for n in model.nodes
+                      if (isinstance(n, NodeAgent) and not n.is_endpoint)
+                      or (isinstance(model, ConflictModel) and n in model.zones and len(model.zones) > 1)],
         "conflict": model.conflict_metrics() if hasattr(model, "conflict_metrics") else None,
         "completed": getattr(model, "completed_tasks", 0),
         "decision_mode": _ui_mode(model),
@@ -204,8 +192,10 @@ def api_step():
     body = request.get_json(silent=True) or {}
     n = int(body.get("n", 1))
     with model_lock:
-        for _ in range(max(1, n)):
+        for _ in range(max(1, min(n, 500))):
             state["model"].step()
+            state["history"].append(sandbox.metrics(state["model"]))
+        del state["history"][:-HISTORY_LEN]
         return jsonify(serialize())
 
 
@@ -213,13 +203,48 @@ def api_step():
 def api_reset():
     body = request.get_json(silent=True) or {}
     name = body.get("model_name", state["model_name"])
-    if name not in MODEL_FACTORIES:
-        return jsonify({"error": f"unknown model '{name}', available: {list(MODEL_FACTORIES.keys())}"}), 400
+    if name not in MODELS:
+        return jsonify({"error": f"unknown model '{name}', available: {list(MODELS)}"}), 400
     with model_lock:
-        state["model_name"] = name
-        state["model"] = MODEL_FACTORIES[name]()
-        _apply_decision_mode(state["model"])
+        try:
+            _apply_decision_mode(_new_model(name, body.get("params")))
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
         return jsonify(serialize())
+
+
+@app.route("/api/model_specs")
+def api_model_specs():
+    """Какие модели можно создать и с какими параметрами (для формы)."""
+    return jsonify({k: {"label": v["label"], "params": v["params"]} for k, v in MODELS.items()})
+
+
+@app.route("/api/node_params", methods=["POST"])
+def api_node_params():
+    """Изменить параметры узла на ходу: {"node": имя, "params": {...}}."""
+    body = request.get_json(force=True)
+    with model_lock:
+        model = state["model"]
+        try:
+            node = (model._find(body["node"]) if isinstance(model, ConflictModel)
+                    else model._find_node(body["node"]))
+            sandbox.apply_params(node, body.get("params") or {})
+        except (ValueError, KeyError) as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify(serialize())
+
+
+@app.route("/api/remove_node", methods=["POST"])
+def api_remove_node():
+    body = request.get_json(force=True)
+    with model_lock:
+        try:
+            lost = state["model"].remove_node(body["node"])
+        except (ValueError, KeyError) as e:
+            return jsonify({"error": str(e)}), 400
+        data = serialize()
+        data["lost_tasks"] = lost
+        return jsonify(data)
 
 
 @app.route("/api/decision_mode", methods=["POST"])
@@ -253,6 +278,8 @@ def api_fail():
         duration = float("inf")  # не восстановится сам -- только через /api/recover
     else:
         duration = int(body.get("duration", 5))
+        if duration < 1:
+            return jsonify({"error": "длительность отказа -- не меньше 1 шага"}), 400
     with model_lock:
         try:
             state["model"].trigger_failure(node_name, duration)
@@ -277,6 +304,12 @@ def api_node_types():
     """Отдаёт список доступных классов узлов (включая созданные через
     scaffold_node.py) вместе с параметрами их конструктора -- фронтенд
     строит по этому форму добавления узла."""
+    if isinstance(state["model"], ConflictModel):
+        # в модели конфликта добавляются только зоны
+        return jsonify([{"class_name": "ZoneAgent", "common_params": [],
+                         "extra_params": [{"name": "priority", "default": 1.0},
+                                          {"name": "arrival_rate", "default": 3.0},
+                                          {"name": "max_intake", "default": 5.0}]}])
     classes = discover_node_classes()
     result = []
     for class_name, cls in sorted(classes.items()):
@@ -325,12 +358,21 @@ def api_add_node():
     if not node_name:
         return jsonify({"error": "укажите имя узла"}), 400
 
-    classes = discover_node_classes()
+    if isinstance(state["model"], ConflictModel):
+        classes = {"ZoneAgent": None}
+    else:
+        classes = discover_node_classes()
     if class_name not in classes:
         return jsonify({"error": f"unknown class '{class_name}', available: {list(classes.keys())}"}), 400
     cls = classes[class_name]
 
     with model_lock:
+        if isinstance(state["model"], ConflictModel):
+            try:
+                state["model"].add_zone(node_name, **{k: float(v) for k, v in params.items()})
+            except (ValueError, TypeError) as e:
+                return jsonify({"error": str(e)}), 400
+            return jsonify(serialize())
         model = state["model"]
         try:
             model.add_node(cls, node_name, insert_after=insert_after,
@@ -403,6 +445,9 @@ def start_ngrok(port: int, password: str | None) -> str:
             break
     proc.terminate()
     raise SystemExit("ngrok не вернул адрес туннеля за 20 с.")
+
+
+_new_model("factory")
 
 
 if __name__ == "__main__":
