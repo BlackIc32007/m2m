@@ -219,5 +219,41 @@ class TestDecisions(unittest.TestCase):
         self.assertEqual(m.completed_tasks, 6)
 
 
+class TestTopologyContext(unittest.TestCase):
+    """Блок topology контекста зоны: строится из графа модели."""
+
+    def test_topology_lists_every_node_and_marks_only_own_zone(self):
+        from src.llm import zone_context as zc
+        for m in models(seeds=[0]):
+            m.step()
+            for zone in m.zones:
+                text = zc.topology(zone)
+                for n in m.nodes:
+                    self.assertIn(n.name, text)
+                self.assertEqual(text.count("this is you"), 1)
+                self.assertIn(f"{zone.name} (irrigation zone, crop value {zone.priority:g} -- this is you)", text)
+                self.assertIn(f"all water reaches them through {m.hub.name}", text)
+                self.assertIn("all nodes are working", text)
+
+    def test_topology_reports_failures_and_goal_sees_no_water(self):
+        from src.llm import zone_context as zc
+        m = ConflictModel("distributor", supply=6, seed=0, decision_mode="autonomous")
+        m.step()
+        m.trigger_failure("Distributor", 3)
+        m.step()
+        zone = m.zones[0]
+        self.assertIn("FAILED now: Distributor", zc.topology(zone))
+        self.assertIn("В ОТКАЗЕ", zc.topology(zone, "ru"))
+        self.assertIn("Water available this step: 0;", zc.describe(zone, ("goal",)))
+
+    def test_default_blocks_unchanged(self):
+        # прежние эксперименты должны давать тот же текст: topology только по запросу
+        from src.llm import zone_context as zc
+        m = ConflictModel("distributor", supply=6, seed=0)
+        m.step()
+        self.assertNotIn("Network topology", zc.describe(m.zones[0]))
+        self.assertTrue(zc.describe(m.zones[0], zc.TOPOLOGY_BLOCKS).startswith("Network topology"))
+
+
 if __name__ == "__main__":
     unittest.main()

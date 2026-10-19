@@ -5,6 +5,11 @@ zone_context -- мост от зоны ConflictModel к тексту для ре
 Контекст собирается из независимых БЛОКОВ, каждый можно включить/выключить --
 на этом держится анализ "какой факт переворачивает решение":
 
+    topology   -- устройство сети: узлы и их роли, куда течёт вода, уровень
+                  бака, какие узлы сейчас в отказе (строится из графа модели:
+                  model.nodes и их downstreams). В BLOCKS не входит, чтобы
+                  прежние эксперименты воспроизводились; полный набор с ним --
+                  TOPOLOGY_BLOCKS
     own        -- своё состояние зоны (потребность, запас, сколько шагов
                   недополучает) + локальная цель (own_goal)
     mechanism  -- как в этой схеме делится вода
@@ -20,6 +25,7 @@ STREAK_CAP ("5 и более"), чтобы близкие состояния д�
 """
 
 BLOCKS = ("own", "mechanism", "neighbors", "goal")
+TOPOLOGY_BLOCKS = ("topology",) + BLOCKS
 STREAK_CAP = 5
 
 
@@ -51,6 +57,17 @@ _T = {
             "auction": "Water is split in proportion to bids; a bid = request x crop value x "
                        "(1 + 0.25 x number of consecutive underserved steps).",
         },
+        "topo": "Network topology. Nodes: {nodes}. Water flows: {flows}.{isolated} {status}",
+        "topo_source": "water source, {supply} units per step",
+        "topo_distributor": "central distributor",
+        "topo_tank": "shared tank, holds {level} of {cap} units",
+        "topo_auctioneer": "auctioneer",
+        "topo_zone": "irrigation zone, crop value {prio:g}",
+        "topo_you": "irrigation zone, crop value {prio:g} -- this is you",
+        "topo_isolated": " Zones are not connected to each other: all water reaches them through {hub}.",
+        "topo_down": " -- FAILED, passes no water now",
+        "topo_ok": "Status: all nodes are working.",
+        "topo_failed": "Status: FAILED now: {names}.",
         "neighbors": "Other zones this step: {items}.",
         "neighbor_item": "{name} (crop value {prio:g}) needs {need}{starving}",
         "neighbor_starving": ", underserved {streak} step(s) in a row",
@@ -90,6 +107,17 @@ _T = {
             "auction": "Вода делится пропорционально ставкам; ставка = запрос x ценность культуры x "
                        "(1 + 0.25 x число шагов подряд с нехваткой).",
         },
+        "topo": "Устройство сети. Узлы: {nodes}. Вода течёт: {flows}.{isolated} {status}",
+        "topo_source": "источник воды, {supply} единиц за шаг",
+        "topo_distributor": "центральный распределитель",
+        "topo_tank": "общий бак, в нём {level} из {cap} единиц",
+        "topo_auctioneer": "аукционист",
+        "topo_zone": "зона орошения, ценность культуры {prio:g}",
+        "topo_you": "зона орошения, ценность культуры {prio:g} -- это ты",
+        "topo_isolated": " Зоны не связаны друг с другом: вся вода приходит к ним через {hub}.",
+        "topo_down": " -- В ОТКАЗЕ, сейчас не пропускает воду",
+        "topo_ok": "Состояние: все узлы работают.",
+        "topo_failed": "Состояние: сейчас в отказе: {names}.",
         "neighbors": "Другие зоны в этот шаг: {items}.",
         "neighbor_item": "{name} (ценность {prio:g}) нужно {need}{starving}",
         "neighbor_starving": ", недополучает {streak} шаг(а) подряд",
@@ -119,6 +147,37 @@ def scheme_key(model) -> str:
     return f"distributor/{model.policy}" if model.scheme == "distributor" else model.scheme
 
 
+def _role(node, zone, t) -> str:
+    return _base_role(node, zone, t) + (t["topo_down"] if node.is_failed else "")
+
+
+def _base_role(node, zone, t) -> str:
+    kind = node.kind
+    if kind == "zone":
+        return t["topo_you" if node is zone else "topo_zone"].format(prio=node.priority)
+    if kind == "source":
+        return t["topo_source"].format(supply=_r(node.supply))
+    if kind == "tank":
+        return t["topo_tank"].format(level=_r(node.level), cap=_r(node.capacity))
+    return t[f"topo_{kind}"]
+
+
+def topology(zone, lang: str = "en") -> str:
+    """Устройство сети из графа модели: узлы с ролями, рёбра, отказы."""
+    t = _T[lang]
+    m = zone.model
+    nodes = "; ".join(f"{n.name} ({_role(n, zone, t)})" for n in m.nodes)
+    flows = "; ".join(f"{n.name} -> {', '.join(d.name for d in n.downstreams)}"
+                      for n in m.nodes if n.downstreams)
+    # зоны изолированы, если у всех один и тот же поставщик и нет рёбер зона -> зона
+    feeders = {n.name for n in m.nodes for d in n.downstreams if d.kind == "zone"}
+    isolated = (t["topo_isolated"].format(hub=next(iter(feeders)))
+                if len(feeders) == 1 and not any(z.downstreams for z in m.zones) else "")
+    failed = [n.name for n in m.nodes if n.is_failed]
+    status = t["topo_failed"].format(names=", ".join(failed)) if failed else t["topo_ok"]
+    return t["topo"].format(nodes=nodes, flows=flows, isolated=isolated, status=status)
+
+
 def describe(zone, blocks=BLOCKS, lang: str = "en", own_goal: str = "selfish") -> str:
     """Текст контекста зоны из выбранных блоков. own_goal: "selfish" --
     с явной локальной целью (максимум воды себе), "none" -- без неё
@@ -126,6 +185,8 @@ def describe(zone, blocks=BLOCKS, lang: str = "en", own_goal: str = "selfish") -
     t = _T[lang]
     m = zone.model
     parts = []
+    if "topology" in blocks:
+        parts.append(topology(zone, lang))
     if "own" in blocks:
         s = zone.unmet_streak
         streak_text = (t["streak0"] if s == 0 else t["streakN"].format(streak=s) if s < STREAK_CAP
@@ -151,7 +212,9 @@ def describe(zone, blocks=BLOCKS, lang: str = "en", own_goal: str = "selfish") -
     if "goal" in blocks:
         # source.produced уже посчитан в этот шаг (hub.available -- ещё нет:
         # зоны объявляют запрос до hub.prepare)
-        parts.append(t["goal"].format(supply=_r(m.source.produced),
+        # при отказе хаба до зон не доходит ничего, хотя источник воду выдал
+        supply = 0.0 if m.hub.is_failed else m.source.produced
+        parts.append(t["goal"].format(supply=_r(supply),
                                       total_need=_r(sum(_need(z) for z in m.zones))))
     return " ".join(parts)
 

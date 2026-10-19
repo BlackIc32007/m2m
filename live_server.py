@@ -41,7 +41,7 @@ from src.model.factory_model import FactoryModel
 from src.model.conflict_model import ConflictModel
 from src.model.zone_policies import RulePolicy, TokenLLMPolicy
 from src.llm import token_decision
-from src.llm.zone_context import BLOCKS
+from src.llm.zone_context import TOPOLOGY_BLOCKS
 
 app = Flask(__name__, static_folder=None)
 
@@ -91,7 +91,7 @@ UI_MODES = ("passive", "autonomous", "autonomous_llm")
 
 
 def _llm_policy():
-    return TokenLLMPolicy(blocks=BLOCKS, debias=True, sample=True)
+    return TokenLLMPolicy(blocks=TOPOLOGY_BLOCKS, debias=True, sample=True)
 
 
 def _ollama_ok() -> bool:

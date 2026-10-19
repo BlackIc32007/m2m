@@ -214,6 +214,15 @@ python experiments/llm_incentives.py        # ~25 мин, запросы пос�
 
 Отчёт -- `docs/llm_incentives_report.md`.
 
+Меняет ли решения знание топологии сети (блок `topology`: узлы, куда течёт
+вода, кто в отказе; используется в режиме «автономный (LLM)» веб-интерфейса):
+
+```bash
+python experiments/llm_topology.py          # ~5 мин
+```
+
+Отчёт -- `docs/llm_topology_report.md`.
+
 ## Веб-визуализация (живая модель в браузере)
 
 ```bash
